@@ -1899,7 +1899,7 @@ function wireAdj(R,A){
 }
 /* ---------- Claude's written assessment: claude.ai capability, your own API key, or copy to the Claude app ---------- */
 const AKEY='rewind-anthropic-key',AMODEL='rewind-anthropic-model';
-const API_MODELS={'claude-sonnet-5-5':'Sonnet 5.5 (about 1¢ per review)','claude-haiku-5-5':'Haiku 5.5 (about 0.1¢ per review)'};
+const API_MODELS={'claude-sonnet-5-5':'Sonnet 5.5 (about 0.3¢ per review)','claude-haiku-5-5':'Haiku 5.5 (about 0.02¢ per review)'};
 const lsGet=k=>{try{return localStorage.getItem(k)||'';}catch(e){return'';}},lsSet=(k,v)=>{try{v?localStorage.setItem(k,v):localStorage.removeItem(k);}catch(e){}};
 const apiKey=()=>lsGet(AKEY),apiModel=()=>API_MODELS[lsGet(AMODEL)]?lsGet(AMODEL):'claude-sonnet-5-5';
 async function callClaudeAPI(prompt){
