@@ -1,0 +1,2051 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Rewind Poker Coach</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Semi+Condensed:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/*
+VOICE: a card room at night; quiet, exact, a coach who shows the arithmetic.
+IDEA: an online poker client's table beside a coach's ruled notebook.
+PICTURE: the live felt table itself, large, with readable four-colour cards.
+COLOUR and TYPE: walnut rail and deep felt, chip red for action, paper-white notebook; Barlow Semi Condensed for chips and labels, Barlow for prose.
+LAYOUT: table left, notebook right; in review the notebook widens; stacks under 900px.
+*/
+:root{color-scheme:dark;--room:#0c1110;--room2:#141b19;--felt:#11603f;--felt2:#0a3c28;--rail:#3a2416;--rail2:#5b3b26;
+  --ink:#eef1ee;--mute:#9fb0a8;--line:#24302c;--chip:#c7362f;--chip2:#e04a3f;--go:#1f8a55;--go2:#26a466;--slate:#3a4743;
+  --paper:#f4f5f1;--pink:#17201d;--pmute:#5b6661;--pline:#dfe3dc;--accent:#c7362f;--good:#1d7a4c;--bad:#b3322b;--warn:#a86a12;
+  --c-s:#1b1d1c;--c-h:#c62f2f;--c-d:#1f5fc4;--c-c:#16804a;
+  --f-num:'Barlow Semi Condensed','Arial Narrow',system-ui,sans-serif;--f-body:'Barlow',system-ui,-apple-system,'Segoe UI',sans-serif}
+:root[data-theme=light],:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--room);color:var(--ink);font:16px/1.5 var(--f-body);overflow-x:clip}
+button,input,textarea,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid #f0d27a;outline-offset:2px}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 400px;grid-template-rows:auto minmax(0,1fr);height:100vh;min-height:620px}
+.app.reviewing{grid-template-columns:minmax(0,1fr) minmax(480px,44vw)}
+header.top{grid-column:1/-1;display:flex;align-items:center;gap:18px;padding:10px 18px;border-bottom:1px solid var(--line);background:var(--room2)}
+.brand{font:600 20px/1 var(--f-num);letter-spacing:.2px;display:flex;align-items:baseline;gap:10px;white-space:nowrap}
+.brand small{font:500 14px var(--f-num);color:var(--mute)}
+.status{font:500 15px var(--f-num);color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .grow{flex:1}
+.pill{font:600 14px var(--f-num);padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:#1a2421;white-space:nowrap}
+.pill.due{border-color:#7a2a24;background:#2a1714;color:#ffb3aa}
+.pill.btn:hover{background:#22302c}
+.net.pos{color:#7fe0a8}.net.neg{color:#ff9a8f}
+
+/* ---------- table ---------- */
+.stage{display:flex;flex-direction:column;min-height:0;padding:14px 18px 12px;gap:10px}
+.table-area{position:relative;flex:1;min-height:340px;max-height:640px}
+.felt{position:absolute;inset:7% 9% 9%;border-radius:999px;background:radial-gradient(ellipse at 50% 40%,#1a7a52 0%,var(--felt) 45%,var(--felt2) 100%);
+  box-shadow:0 0 0 14px var(--rail),0 0 0 16px var(--rail2),0 0 0 17px #000,0 30px 60px rgba(0,0,0,.6),inset 0 0 60px rgba(0,0,0,.45)}
+.felt::after{content:'';position:absolute;inset:16px;border-radius:999px;border:1px solid rgba(255,255,255,.07)}
+.center{position:absolute;left:50%;top:46%;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:8px;z-index:2}
+.potlabel{font:600 17px var(--f-num);background:rgba(0,0,0,.35);padding:3px 12px;border-radius:999px;white-space:nowrap}
+.potlabel.hidden{color:#f0d27a}
+.board{display:flex;gap:6px;min-height:82px}
+.slot{width:58px;height:82px;border-radius:7px;border:1px dashed rgba(255,255,255,.12)}
+.card{width:58px;height:82px;border-radius:7px;background:#fbfbf8;display:inline-flex;flex-direction:column;align-items:center;justify-content:center;line-height:1;
+  box-shadow:0 2px 0 rgba(0,0,0,.25),0 6px 14px rgba(0,0,0,.35);font-family:var(--f-num);position:relative;user-select:none}
+.card b{font-size:32px;font-weight:700;letter-spacing:-1px}.card i{font-style:normal;font-size:24px;margin-top:2px}
+.card.sm{width:40px;height:56px;border-radius:5px}.card.sm b{font-size:22px}.card.sm i{font-size:16px}
+.card.xs{width:28px;height:38px;border-radius:4px;box-shadow:0 1px 2px rgba(0,0,0,.3)}.card.xs b{font-size:16px}.card.xs i{font-size:12px;margin:0}
+.card.s-s{color:var(--c-s)}.card.s-h{color:var(--c-h)}.card.s-d{color:var(--c-d)}.card.s-c{color:var(--c-c)}
+.card.back{background:repeating-linear-gradient(45deg,#7d1f1b 0 6px,#962a24 6px 12px);border:3px solid #f2efe6}
+.card.deal{animation:deal .28s ease-out both}
+@keyframes deal{from{transform:translateY(-14px) scale(.92);opacity:0}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.card.deal{animation:none}}
+.seat{position:absolute;transform:translate(-50%,-50%);z-index:3;display:flex;flex-direction:column;align-items:center;gap:4px;width:150px}
+.seat .hole{display:flex;gap:3px;height:56px}
+.seat.hero .hole{height:82px}
+.plate{background:#0d1513;border:1px solid #2c3a35;border-radius:10px;padding:5px 10px 6px;min-width:128px;text-align:center;box-shadow:0 6px 16px rgba(0,0,0,.4);position:relative}
+.seat.acting .plate{border-color:#f0d27a;box-shadow:0 0 0 2px rgba(240,210,122,.35),0 6px 16px rgba(0,0,0,.4)}
+.seat.folded{opacity:.42}
+.plate .nm{font:600 15px/1.15 var(--f-num);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plate .stk{font:600 17px/1.1 var(--f-num);color:#f3e7c3}
+.plate .ps{position:absolute;top:-10px;left:8px;font:700 12px/1 var(--f-num);background:#2a3733;color:#cfe0d8;padding:3px 6px;border-radius:5px;letter-spacing:.3px}
+.plate .act{position:absolute;top:-10px;right:8px;font:600 12px/1 var(--f-num);background:#f0d27a;color:#231a07;padding:3px 6px;border-radius:5px;white-space:nowrap}
+.dealer{position:absolute;width:26px;height:26px;border-radius:50%;background:#f7f4ea;color:#111;font:800 13px/26px var(--f-num);text-align:center;box-shadow:0 2px 4px rgba(0,0,0,.5);z-index:4;transform:translate(-50%,-50%)}
+.bet{position:absolute;transform:translate(-50%,-50%);z-index:2;display:flex;align-items:center;gap:6px;font:700 16px var(--f-num);white-space:nowrap;text-shadow:0 1px 2px rgba(0,0,0,.6)}
+.chips{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle,#fff 0 28%,var(--chip) 30% 62%,#fff 64% 70%,var(--chip) 72%);box-shadow:0 2px 0 #6d1a16}
+.banner{position:absolute;left:50%;top:66%;transform:translate(-50%,-50%);z-index:5;background:rgba(6,10,9,.88);border:1px solid #39463f;border-radius:12px;padding:10px 16px;text-align:center;font:600 16px/1.35 var(--f-num);max-width:70%}
+.banner small{display:block;color:var(--mute);font-weight:500}
+
+/* ---------- action bar ---------- */
+.actionbar{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1.2fr);gap:14px;align-items:center;background:var(--room2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;min-height:76px}
+.ab-info{font:500 15px/1.35 var(--f-num);color:var(--mute)}
+.ab-info strong{color:var(--ink);font-weight:600}
+.ab-btns{display:flex;gap:8px}
+.abtn{min-width:104px;min-height:52px;border:0;border-radius:10px;font:700 18px/1.05 var(--f-num);color:#fff;padding:6px 14px;box-shadow:0 3px 0 rgba(0,0,0,.35)}
+.abtn small{display:block;font:500 13px var(--f-num);opacity:.85}
+.abtn.fold{background:var(--slate)}.abtn.call{background:var(--go)}.abtn.raise{background:var(--chip)}
+.abtn.fold:hover{background:#4a5853}.abtn.call:hover{background:var(--go2)}.abtn.raise:hover{background:var(--chip2)}
+.abtn:disabled{opacity:.35;cursor:default}
+.sizer{display:flex;flex-direction:column;gap:6px}
+.sizer .row{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.preset{min-height:34px;padding:4px 10px;border-radius:8px;border:1px solid #33433d;background:#1b2622;font:600 14px var(--f-num)}
+.preset:hover{background:#25332e}
+.sizer input[type=range]{flex:1;accent-color:var(--chip)}
+.sizer input[type=number]{width:84px;min-height:36px;border-radius:8px;border:1px solid #33433d;background:#0f1715;padding:4px 8px;font:600 16px var(--f-num)}
+.hint{font:500 13px var(--f-num);color:var(--mute)}
+.flag{min-height:40px;border-radius:9px;border:1px solid #4a3a1a;background:#221b0d;color:#f0d27a;font:600 14px var(--f-num);padding:4px 12px;white-space:nowrap}
+.flag.on{background:#f0d27a;color:#2a1f05}
+.waitmsg{font:600 16px var(--f-num);color:var(--mute);text-align:center}
+.nextbtn{min-height:48px;border-radius:10px;border:0;background:var(--go);color:#fff;font:700 17px var(--f-num);padding:6px 18px}
+
+/* ---------- side panel ---------- */
+aside.side{border-left:1px solid var(--line);display:flex;flex-direction:column;min-height:0;background:var(--room2)}
+.tabs{display:flex;border-bottom:1px solid var(--line)}
+.tab{flex:1;min-height:44px;background:none;border:0;border-bottom:2px solid transparent;font:600 15px var(--f-num);color:var(--mute)}
+.tab.on{color:var(--ink);border-bottom-color:var(--chip)}
+.panel{flex:1;overflow:auto;padding:14px 16px 24px}
+.loglist{list-style:none;margin:0;padding:0;font:500 15px/1.45 var(--f-num)}
+.loglist li{padding:3px 0;border-bottom:1px solid #1d2724;display:flex;gap:8px;align-items:baseline}
+.loglist .st{color:#f0d27a;font-weight:700;padding-top:8px;border:0}
+.loglist .me{color:#ffd9a8}
+.loglist .amt{margin-left:auto;color:var(--mute);white-space:nowrap}
+.hud{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin-bottom:10px;background:#111917}
+.hud h4{margin:0 0 6px;font:600 16px var(--f-num);display:flex;justify-content:space-between;gap:8px}
+.hud h4 span{color:var(--mute);font-weight:500}
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px;font:600 15px var(--f-num);text-align:center}
+.stats div small{display:block;font:500 12.5px var(--f-num);color:var(--mute)}
+.sd{display:flex;gap:6px;align-items:center;margin-top:6px;font:500 14px var(--f-num);color:var(--mute);flex-wrap:wrap}
+.muted{color:var(--mute)}
+h3.sec{font:600 17px var(--f-num);margin:18px 0 8px}
+h3.sec:first-child{margin-top:0}
+.skillrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:8px 0;border-bottom:1px solid var(--line);font:500 15px var(--f-num)}
+.dots{display:flex;gap:3px}.dots i{width:9px;height:9px;border-radius:50%;background:#2c3834}.dots i.ok{background:#2fb36f}.dots i.no{background:#e0574d}
+.tag{font:700 12px var(--f-num);padding:2px 6px;border-radius:5px;background:#3a1714;color:#ffb3aa;margin-left:6px}
+.field{display:flex;align-items:center;gap:8px;margin:8px 0}
+.field select,.field input{min-height:40px;border-radius:8px;border:1px solid #33433d;background:#0f1715;padding:4px 8px}
+.lnk{background:none;border:0;color:#f0d27a;text-decoration:underline;padding:0;font:inherit}
+.btn2{min-height:42px;border-radius:9px;border:1px solid #3a4a44;background:#1b2622;padding:6px 14px;font:600 15px var(--f-num)}
+.btn2:hover{background:#24322d}
+.handrow{border-bottom:1px solid var(--line);padding:8px 0}
+.handrow summary{cursor:pointer;display:flex;gap:8px;align-items:center;font:600 15px var(--f-num);list-style:none}
+.handrow summary::-webkit-details-marker{display:none}
+
+/* ---------- coach notebook (light paper) ---------- */
+.coach{background:var(--paper);color:var(--pink);flex:1;overflow:auto;padding:18px 20px 40px;font-size:16px}
+.coach h2{font:600 26px/1.15 var(--f-num);margin:0 0 6px;text-wrap:balance}
+.coach h3{font:600 19px/1.2 var(--f-num);margin:20px 0 8px}
+.coach p{margin:6px 0 10px;max-width:70ch}
+.coach .sub{color:var(--pmute);font:500 15px/1.4 var(--f-num)}
+.coach .steps{display:flex;gap:6px;margin:10px 0 14px}
+.coach .steps i{flex:1;height:5px;border-radius:3px;background:var(--pline)}.coach .steps i.on{background:var(--accent)}.coach .steps i.done{background:#8aa898}
+.qcard{border:1px solid var(--pline);background:#fff;border-radius:12px;padding:14px 16px;margin:10px 0}
+.qcard label{display:block;font:600 16px/1.3 var(--f-num);margin:10px 0 4px}
+.qcard input[type=number],.qcard input[type=text],.qcard textarea{width:100%;min-height:44px;border:1px solid #c9cfc6;border-radius:8px;padding:8px 10px;background:#fbfcfa;color:var(--pink);font-size:16px}
+.qcard textarea{min-height:78px;resize:vertical;font-family:var(--f-body)}
+.inrow{display:flex;gap:8px;align-items:center}.inrow input{max-width:150px}.inrow span{color:var(--pmute);font:500 15px var(--f-num)}
+.go{min-height:46px;border:0;border-radius:10px;background:var(--accent);color:#fff;font:700 17px var(--f-num);padding:6px 20px;margin-top:12px}
+.go:hover{background:#d8443c}.go:disabled{opacity:.5}
+.ghost{min-height:44px;border:1px solid #c9cfc6;border-radius:10px;background:#fff;color:var(--pink);font:600 15px var(--f-num);padding:6px 14px}
+.ghost:hover{background:#f0f2ec}
+.choice{display:flex;gap:6px;flex-wrap:wrap}
+.choice button{min-height:44px;min-width:84px;border:1px solid #c9cfc6;border-radius:9px;background:#fff;font:600 16px var(--f-num);text-transform:capitalize}
+.choice button.on{background:var(--pink);color:#fff;border-color:var(--pink)}
+.fb{border-left:4px solid var(--pline);padding:8px 12px;margin:10px 0;background:#fff;border-radius:0 10px 10px 0}
+.fb.ok{border-color:var(--good)}.fb.no{border-color:var(--bad)}.fb.mid{border-color:var(--warn)}
+.fb .v{font:700 15px var(--f-num);letter-spacing:.2px}.fb.ok .v{color:var(--good)}.fb.no .v{color:var(--bad)}.fb.mid .v{color:var(--warn)}
+.calc{font:500 16px/1.5 var(--f-num);background:#f0f3ee;border-radius:8px;padding:8px 12px;margin:6px 0}
+.calc b{font-weight:700}
+.histline{font:500 15px/1.5 var(--f-num);color:#38423e;background:#fff;border:1px solid var(--pline);border-radius:10px;padding:8px 12px;max-height:320px;overflow:auto}
+.histline .loglist li{border-color:#eceee9}.histline .loglist .me{color:var(--accent);font-weight:600}.histline .loglist .st{color:#7a5a12}.histline .loglist .amt{color:#5b6661}
+.histline div{display:flex;gap:6px}.histline .st{color:var(--accent);font-weight:700;margin-top:4px}
+.two{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.col{border:1px solid var(--pline);background:#fff;border-radius:12px;padding:12px 14px}
+.col h4{margin:0 0 4px;font:700 17px var(--f-num)}
+.bar{display:grid;grid-template-columns:62px minmax(0,1fr) 56px;gap:8px;align-items:center;font:600 15px var(--f-num);margin:4px 0}
+.bar .tr{height:14px;background:#e8ece5;border-radius:7px;overflow:hidden}.bar .tr i{display:block;height:100%;background:var(--pink)}
+.bar .tr i.alt{background:#9aa9a1}
+.bar .n{text-align:right;white-space:nowrap}
+.big{font:700 30px/1.05 var(--f-num)}
+.slider{margin:10px 0 4px;position:relative}
+.slider input{width:100%;accent-color:var(--accent)}
+.flipmark{position:absolute;top:-6px;width:2px;height:30px;background:var(--bad);pointer-events:none}
+.kv{display:grid;grid-template-columns:auto minmax(0,1fr);gap:2px 12px;font:500 15px var(--f-num)}.kv dt{color:var(--pmute)}.kv dd{margin:0}
+details.src{margin-top:8px;font-size:14.5px;color:#38423e}details.src summary{cursor:pointer;font:600 14.5px var(--f-num);color:var(--pmute)}
+.chipk{display:inline-block;font:700 13px var(--f-num);padding:2px 6px;border-radius:5px;margin:2px;background:#eef1ec}
+.chipk.imp{background:#f8dcd9;color:#8e211b;text-decoration:line-through}.chipk.q{background:#fbe9c8;color:#7a4a05}.chipk.alt{background:#dfe9f6;color:#1d4a87}.chipk.ok{background:#d9efe2;color:#145c37}.chipk.miss{background:#eceee9;color:#38423e;outline:1px dashed #9aa59f}
+.take{background:var(--pink);color:#fff;border-radius:12px;padding:14px 16px;margin:14px 0;font:500 17px/1.45 var(--f-body)}
+.take b{font:700 14px var(--f-num);letter-spacing:.3px;display:block;color:#f0d27a;margin-bottom:2px}
+.cl{background:#fff;border:1px dashed #b9c2bb;border-radius:10px;padding:10px 12px;margin:8px 0;font-size:15.5px;white-space:pre-wrap}
+.rowbtns{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.declist{list-style:none;padding:0;margin:8px 0}.declist li{margin:6px 0}
+.declist button{width:100%;text-align:left;min-height:44px;border:1px solid var(--pline);border-radius:10px;background:#fff;padding:8px 12px;font:500 15px var(--f-num)}
+.declist button.pick{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+
+/* ---------- range grid ---------- */
+.gridwrap{margin:8px 0}
+.tools{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+.tools button{min-height:36px;border:1px solid #c9cfc6;border-radius:8px;background:#fff;font:600 14px var(--f-num);padding:2px 10px}
+.tools button.on{background:var(--pink);color:#fff;border-color:var(--pink)}
+.grid{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:2px;user-select:none;touch-action:none;max-width:560px}
+.cell{aspect-ratio:1/1;border:0;border-radius:4px;background:#e9ece6;font:600 13px/1 var(--f-num);color:#38423e;padding:0;position:relative;overflow:hidden;min-height:30px}
+.cell.pr{background:#dfe4dd}.cell.su{background:#ecefe8}
+.cell .fill{position:absolute;inset:0;background:var(--accent);opacity:0}
+.cell span{position:relative}
+.cell.sel{color:#fff}
+.cell.down::after{content:'↓';position:absolute;right:2px;top:1px;font-size:11px;color:#1d4a87;font-weight:800}
+.cell.blk{background:repeating-linear-gradient(135deg,#e2e5df 0 4px,#f4f5f1 4px 8px);color:#a3aca6}
+.cell.heat .fill{background:#17201d}
+.cell.ring{box-shadow:inset 0 0 0 2px var(--accent)}
+.legend{font:500 14px var(--f-num);color:var(--pmute);margin-top:6px}
+.compbars{margin:8px 0}.compbars .bar{grid-template-columns:150px minmax(0,1fr) 92px}
+
+/* ---------- overlay ---------- */
+.overlay{position:fixed;inset:0;background:rgba(4,7,6,.72);display:grid;place-items:center;z-index:50;padding:16px}
+.modal{background:var(--paper);color:var(--pink);border-radius:14px;max-width:560px;width:100%;padding:22px 24px;box-shadow:0 30px 80px rgba(0,0,0,.6)}
+.modal h2{font:600 30px/1.1 var(--f-num);margin:0 0 8px}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:#f4f5f1;color:#17201d;border-radius:10px;padding:10px 16px;font:600 15px var(--f-num);z-index:60;box-shadow:0 10px 30px rgba(0,0,0,.5);max-width:90vw}
+
+@media (max-width:1100px){.app,.app.reviewing{grid-template-columns:minmax(0,1fr) 360px}.two{grid-template-columns:minmax(0,1fr)}}
+@media (max-width:900px){
+  .app,.app.reviewing{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;height:auto}
+  aside.side{border-left:0;border-top:1px solid var(--line);min-height:60vh}
+  .table-area{min-height:460px}
+  .actionbar{grid-template-columns:minmax(0,1fr)}
+  .seat{width:110px}.plate{min-width:96px;padding:4px 6px}.card{width:44px;height:62px}.card b{font-size:24px}.card i{font-size:18px}.slot{width:44px;height:62px}.board{min-height:62px}
+  .seat .hole{height:42px}.seat.hero .hole{height:62px}.card.sm{width:30px;height:42px}.card.sm b{font-size:17px}.card.sm i{font-size:12px}
+}
+@media (max-width:600px){.felt{inset:9% 4% 10%}.status{display:none}header.top{flex-wrap:wrap;gap:8px}}
+
+</style></head><body>
+<div class="app" id="app">
+<header class="top"><div class="brand">Rewind <small>six-handed hold'em coach</small></div><div class="status" id="status"></div><div class="grow"></div><button class="pill btn due" id="duePill" hidden></button><span class="pill net" id="netPill"></span></header>
+<main class="stage"><div class="table-area" id="table" aria-label="Poker table"></div><div class="actionbar" id="actionbar"></div></main>
+<aside class="side" id="side"></aside>
+</div>
+<div id="overlay"></div>
+<script>
+/* ================= engine.js — cards, evaluator, ranges, player models, game ================= */
+'use strict';
+
+/* ---------- RNG ---------- */
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+let RNG=mulberry32(((Date.now()%2147483647)^Math.floor(Math.random()*1e9))>>>0);
+function seedRNG(s){RNG=mulberry32(s>>>0);}
+
+/* ---------- cards ---------- */
+const RANKS='23456789TJQKA', SUITS='cdhs';
+const cardStr=c=>RANKS[c>>2]+SUITS[c&3];
+const parseCard=s=>RANKS.indexOf(s[0])*4+SUITS.indexOf(s[1]);
+const CAT_NAMES=['High card','Pair','Two pair','Three of a kind','Straight','Flush','Full house','Four of a kind','Straight flush'];
+
+/* ---------- evaluator (any 1..7 cards; higher score wins) ---------- */
+const _rc=new Int8Array(13), _sm=new Int32Array(4), _sc=new Int8Array(4);
+function straightHigh(m){for(let h=12;h>=4;h--){const need=0x1F<<(h-4);if((m&need)===need)return h;}return (m&0x100F)===0x100F?3:-1;}
+function topBits(m,n){let out=0,k=0;for(let r=12;r>=0&&k<n;r--){if(m&(1<<r)){out=(out<<4)|r;k++;}}while(k<n){out<<=4;k++;}return out;}
+function evalHand(cs){
+  _rc.fill(0);_sm.fill(0);_sc.fill(0);let rm=0;
+  for(let i=0;i<cs.length;i++){const c=cs[i],r=c>>2,s=c&3;_rc[r]++;_sm[s]|=1<<r;_sc[s]++;rm|=1<<r;}
+  for(let s=0;s<4;s++)if(_sc[s]>=5){const m=_sm[s],sh=straightHigh(m);if(sh>=0)return(8<<20)|(sh<<16);return(5<<20)|topBits(m,5);}
+  let q=-1,t1=-1,t2=-1,p1=-1,p2=-1;
+  for(let r=12;r>=0;r--){const n=_rc[r];if(n===4)q=r;else if(n===3){if(t1<0)t1=r;else if(t2<0)t2=r;}else if(n===2){if(p1<0)p1=r;else if(p2<0)p2=r;}}
+  if(q>=0)return(7<<20)|(q<<16)|(topBits(rm&~(1<<q),1)<<12);
+  if(t1>=0&&(t2>=0||p1>=0))return(6<<20)|(t1<<16)|(Math.max(t2,p1)<<12);
+  const sh=straightHigh(rm);if(sh>=0)return(4<<20)|(sh<<16);
+  if(t1>=0)return(3<<20)|(t1<<16)|(topBits(rm&~(1<<t1),2)<<8);
+  if(p1>=0&&p2>=0)return(2<<20)|(p1<<16)|(p2<<12)|(topBits(rm&~(1<<p1)&~(1<<p2),1)<<8);
+  if(p1>=0)return(1<<20)|(p1<<16)|(topBits(rm&~(1<<p1),3)<<4);
+  return topBits(rm,5);
+}
+const catOf=score=>score>>20;
+function describeHand(cs){const s=evalHand(cs),cat=s>>20,r1=(s>>16)&15,r2=(s>>12)&15;const N=['twos','threes','fours','fives','sixes','sevens','eights','nines','tens','jacks','queens','kings','aces'];
+  const H=['two','three','four','five','six','seven','eight','nine','ten','jack','queen','king','ace'];
+  switch(cat){case 8:return r1===12?'Royal flush':H[r1]+'-high straight flush';case 7:return'Four '+N[r1];case 6:return N[r1]+' full of '+N[r2];case 5:return'Flush, '+H[(s>>16)&15]+' high';case 4:return H[r1]+'-high straight';case 3:return'Three '+N[r1];case 2:return N[r1]+' and '+N[r2];case 1:return'Pair of '+N[r1];default:return H[(s>>16)&15]+' high';}}
+
+/* ---------- combos and the 13x13 grid ---------- */
+const NC=1326, CA=new Int8Array(NC), CB=new Int8Array(NC), CCLS=new Int16Array(NC), CIDX=new Int16Array(2704).fill(-1);
+function classOfCards(a,b){const ra=a>>2,rb=b>>2,hi=Math.max(ra,rb),lo=Math.min(ra,rb),i=12-hi,j=12-lo;if(ra===rb)return i*13+i;if((a&3)===(b&3))return i*13+j;return j*13+i;}
+{let n=0;for(let a=0;a<52;a++)for(let b=a+1;b<52;b++){CA[n]=a;CB[n]=b;CIDX[a*52+b]=n;CIDX[b*52+a]=n;CCLS[n]=classOfCards(a,b);n++;}}
+const CLASS_COMBOS=Array.from({length:169},()=>[]);for(let i=0;i<NC;i++)CLASS_COMBOS[CCLS[i]].push(i);
+function classLabel(k){const i=Math.floor(k/13),j=k%13;if(i===j)return RANKS[12-i]+RANKS[12-i];return i<j?RANKS[12-i]+RANKS[12-j]+'s':RANKS[12-j]+RANKS[12-i]+'o';}
+const CLASS_LABELS=Array.from({length:169},(_,k)=>classLabel(k));
+const comboStr=i=>cardStr(CA[i])+cardStr(CB[i]);
+function blockedMask(dead){const m=new Uint8Array(NC);if(!dead||!dead.length)return m;const d=new Uint8Array(52);dead.forEach(c=>d[c]=1);for(let i=0;i<NC;i++)if(d[CA[i]]||d[CB[i]])m[i]=1;return m;}
+
+/* ---------- range strings ---------- */
+function _pairK(r){const i=12-r;return i*13+i;}
+function _suitK(h,l){return(12-h)*13+(12-l);}
+function _offK(h,l){return(12-l)*13+(12-h);}
+function parseRange(str){
+  const w=new Float64Array(169);if(!str)return w;
+  for(let tok of str.split(',')){
+    tok=tok.trim();if(!tok)continue;let wt=1;const ci=tok.indexOf(':');if(ci>=0){wt=parseFloat(tok.slice(ci+1));tok=tok.slice(0,ci);}
+    const set=k=>{w[k]=wt;};
+    const one=(t,fn)=>{const h=RANKS.indexOf(t[0]),l=RANKS.indexOf(t[1]),s=t[2]||'';fn(h,l,s);};
+    const put=(h,l,s)=>{if(h===l)set(_pairK(h));else{const H=Math.max(h,l),L=Math.min(h,l);if(s!=='o')set(_suitK(H,L));if(s!=='s')set(_offK(H,L));}};
+    if(tok.includes('-')){const[a,b]=tok.split('-');const h1=RANKS.indexOf(a[0]),l1=RANKS.indexOf(a[1]),l2=RANKS.indexOf(b[1]),s=a[2]||'';
+      if(h1===l1){const lo=Math.min(l1,l2),hi=Math.max(l1,l2);for(let r=lo;r<=hi;r++)set(_pairK(r));}
+      else{const lo=Math.min(l1,l2),hi=Math.max(l1,l2);for(let l=lo;l<=hi;l++)put(h1,l,s);}}
+    else if(tok.endsWith('+')){const t=tok.slice(0,-1);one(t,(h,l,s)=>{if(h===l){for(let r=h;r<=12;r++)set(_pairK(r));}else{for(let x=l;x<h;x++)put(h,x,s);}});}
+    else one(tok,put);
+  }
+  return w;
+}
+const R=parseRange;
+function pairRange(r,c){const rr=R(r),cc=R(c);for(let k=0;k<169;k++)cc[k]=Math.min(cc[k],1-rr[k]);return{r:rr,c:cc};}
+function blend(a,b,t){const o=new Float64Array(169);for(let k=0;k<169;k++)o[k]=a[k]*(1-t)+b[k]*t;return o;}
+function rangeWidth(w){let s=0;for(let k=0;k<169;k++)s+=w[k]*CLASS_COMBOS[k].length;return s/NC;}
+
+/* ---------- player models (public hypotheses = player types) ---------- */
+const POS6=['BTN','SB','BB','UTG','HJ','CO'];
+const PRE_ORDER=['UTG','HJ','CO','BTN','SB','BB'];
+const OPEN_TAG={
+  UTG:'77+,66-22:0.7,A2s+,K8s+,Q9s+,J9s+,T9s,98s,87s:0.7,76s:0.5,65s:0.5,ATo+,KJo+,KTo:0.3,QJo:0.4',
+  HJ:'22+,A2s+,K6s+,Q8s+,J8s+,T8s+,97s+,87s,76s,65s,54s:0.5,A9o+,A8o:0.3,KTo+,QTo+,JTo:0.6',
+  CO:'22+,A2s+,K3s+,Q6s+,J7s+,T7s+,96s+,86s+,75s+,64s+,54s,43s:0.4,A7o+,A6o:0.4,A5o:0.7,K9o+,Q9o+,J9o+,T9o,98o:0.4',
+  BTN:'22+,A2s+,K2s+,Q2s+,J4s+,T5s+,95s+,85s+,74s+,63s+,53s+,43s,42s:0.5,32s:0.5,A2o+,K6o+,Q8o+,J8o+,T8o+,97o+,87o,76o,65o:0.5',
+  SB:'22+,A2s+,K2s+,Q4s+,J6s+,T6s+,96s+,85s+,75s+,64s+,54s,43s:0.5,A2o+,K8o+,K7o:0.4,Q9o+,J9o+,T9o,98o:0.5'};
+const BB_WIDE_CALL='99-22,ATs-A2s,K2s+,Q5s+,J7s+,T7s+,96s+,85s+,75s+,64s+,53s+,43s,A2o+,K8o+,Q9o+,J9o+,T8o+,98o,87o:0.6';
+const PROFILE_SRC={
+ tag:{label:'Solid regular',
+  open:OPEN_TAG,
+  vsOpen:{ip:{early:['QQ+,AKs,AKo,A5s:0.7,A4s:0.5,KQs:0.4','JJ-77:0.7,AQs,AJs:0.7,KQs,KJs:0.5,QJs:0.5,JTs:0.5,AQo:0.5'],
+              late:['TT+,AJs+,KQs,AQo+,A5s-A3s,K9s:0.5,Q9s:0.3,J9s:0.3,76s:0.3','99-22:0.8,ATs-A6s:0.7,KJs-KTs,QTs+,JTs,T9s,98s:0.7,87s:0.5,AJo:0.6,KQo:0.6']},
+          sb:{early:['TT+,AJs+,AKo,AQo:0.6,KQs,A5s:0.6,A4s:0.4',''],late:['88+,ATs+,KTs+,QTs+,JTs,T9s:0.5,98s:0.4,A5s-A2s,AJo+,KQo,77-55:0.5','']},
+          bb:{early:['QQ+,AKs,AKo,A5s:0.5,K9s:0.2','JJ-22,AQs-A2s,KQs-K9s,QJs-Q9s,JTs-J9s,T9s,T8s,98s,97s,87s,86s:0.5,76s,65s,54s,AQo-ATo,KQo,KJo,QJo:0.6'],
+              late:['TT+,AJs+,AQo+,A5s-A2s:0.5,K9s:0.4,76s:0.3,65s:0.3',BB_WIDE_CALL],
+              sb:['99+,ATs+,KJs+,AJo+,A5s-A2s:0.5,K9s:0.4,Q9s:0.3,J9s:0.3,T8s:0.3,76s:0.4,65s:0.4','88-22,A9s-A2s,K2s+,Q2s+,J5s+,T6s+,96s+,85s+,74s+,63s+,53s+,43s,A2o+,K5o+,Q7o+,J8o+,T8o+,97o+,87o,76o:0.6']}},
+  vs3bet:['KK+,AKs,AKo:0.6,A5s:0.4,QQ:0.3','QQ-88,AQs-ATs,KQs,KJs:0.7,QJs:0.7,JTs:0.6,T9s:0.4,AKo,AQo:0.5'],
+  cold3bet:['KK+,AKs','QQ-JJ:0.5,AQs:0.3'], vs4bet:['QQ+,AKs,AKo,A5s:0.15','JJ:0.4'], cold4bet:['KK+',''],
+  vs5bet:'QQ+,AKs,AKo,JJ:0.5', bbIso:'88+,ATs+,KQs,AJo+', limpCall:0.3,
+  post:{val:0.84,slow:0.2,bluff:0.12,cbet:0.22,semi:0.45,prot:0.05,cBase:0.36,cSlope:0.5,rThr:0.94,rBluff:0.05,bigV:0.6,bigB:0.5}},
+ nit:{label:'Tight-passive',
+  open:{UTG:'88+,ATs+,KQs,AQo+',HJ:'77+,A9s+,KTs+,QTs+,JTs,AJo+,KQo',CO:OPEN_TAG.UTG,BTN:OPEN_TAG.HJ,SB:OPEN_TAG.HJ},
+  vsOpen:{ip:{late:['QQ+,AKs,AKo:0.7','JJ-66,AQs,AJs:0.6,KQs:0.6,AQo:0.5']},sb:{late:['QQ+,AKs,AKo','JJ-77,AQs,AJs,KQs:0.5']},
+          bb:{late:['QQ+,AKs','JJ-22,AQs-A8s,KQs-KTs,QJs,QTs,JTs,T9s,98s,AKo,AQo,AJo,KQo']}},
+  vs3bet:['KK+,AKs','QQ-TT,AKo,AQs'], cold3bet:['KK+','QQ:0.5'], vs4bet:['KK+','QQ:0.4,AKs:0.5'], cold4bet:['KK+',''],
+  vs5bet:'KK+,AKs', bbIso:'TT+,AQs+,AKo', limpCall:0.3,
+  post:{val:0.89,slow:0.3,bluff:0.04,cbet:0.12,semi:0.2,prot:0.03,cBase:0.5,cSlope:0.55,rThr:0.97,rBluff:0.01,bigV:0.5,bigB:0.4}},
+ lag:{label:'Loose-aggressive',
+  open:{UTG:OPEN_TAG.HJ,HJ:OPEN_TAG.CO,CO:OPEN_TAG.BTN,BTN:OPEN_TAG.BTN+',K2o+,Q5o+,J7o+,T7o+,96o+,86o+,75o+,64o+,54o,J2s+,T2s+,92s+,82s+,72s+,62s+,52s+',SB:OPEN_TAG.BTN},
+  vsOpen:{ip:{early:['TT+,AQs+,AKo,AQo:0.5,A5s-A2s,KQs,KJs:0.5,QJs:0.4,JTs:0.4,T9s:0.4,98s:0.3','99-22,AJs-ATs,KTs,QTs,J9s,T8s,87s,76s,65s,AJo:0.5,KQo:0.5'],
+              late:['88+,ATs+,KTs+,QTs+,JTs,A9s-A2s:0.7,T9s,98s,87s:0.6,76s:0.6,AJo+,KQo,KJo:0.5','77-22,K9s,Q9s,J9s,T8s,97s,86s,65s,54s,ATo,KJo,QJo']},
+          sb:{late:['88+,ATs+,KTs+,QTs+,JTs,T9s,98s,A5s-A2s,AJo+,KQo,KJo:0.5,77-55:0.5','']},
+          bb:{late:['99+,ATs+,KJs+,AJo+,A5s-A2s,K9s,Q9s,J9s,T8s,97s,86s,75s,64s:0.6',BB_WIDE_CALL]}},
+  vs3bet:['QQ+,AKs,AKo,A5s-A4s,KQs:0.3,76s:0.2','JJ-77,AQs-ATs,KQs,KJs,QJs,JTs,T9s,98s,87s:0.5,AQo,KQo:0.4'],
+  cold3bet:['QQ+,AKs,A5s:0.3','JJ-TT,AQs,KQs:0.4'], vs4bet:['TT+,AQs+,AKo,A5s:0.3,KQs:0.1','99:0.3'], cold4bet:['QQ+,AKs',''],
+  vs5bet:'TT+,AQs+,AKo,A5s:0.3', bbIso:'66+,A8s+,KTs+,QTs+,JTs,ATo+,KJo+', limpCall:0.3,
+  post:{val:0.79,slow:0.12,bluff:0.28,cbet:0.28,semi:0.65,prot:0.1,cBase:0.32,cSlope:0.45,rThr:0.92,rBluff:0.12,bigV:0.65,bigB:0.6}},
+ station:{label:'Calling station',
+  open:{UTG:OPEN_TAG.UTG,HJ:OPEN_TAG.HJ,CO:OPEN_TAG.CO,BTN:OPEN_TAG.CO,SB:OPEN_TAG.CO},
+  limpOpen:'22+,A2s+,K2s+,Q5s+,J7s+,T7s+,97s+,86s+,75s+,64s+,54s,A2o+,K8o+,Q9o+,J9o+,T9o,98o',
+  vsOpen:{ip:{late:['QQ+,AKs','JJ-22,A2s+,K5s+,Q7s+,J7s+,T7s+,96s+,86s+,75s+,65s,54s,A8o+,KTo+,QTo+,JTo,T9o']},
+          sb:{late:['QQ+,AKs','JJ-22,A2s+,K5s+,Q7s+,J7s+,T7s+,96s+,86s+,75s+,65s,54s,A8o+,KTo+,QTo+,JTo,T9o']},
+          bb:{late:['QQ+,AKs','JJ-22,A2s+,K2s+,Q2s+,J4s+,T5s+,95s+,84s+,74s+,63s+,53s+,43s,A2o+,K5o+,Q7o+,J7o+,T7o+,97o+,86o+,76o,65o']}},
+  vs3bet:['KK+','QQ-55,A9s+,KTs+,QTs+,JTs,T9s,98s,AJo+,KQo'], cold3bet:['KK+','QQ-88,AQs+,AKo,KQs'], vs4bet:['KK+','QQ-TT,AKs,AKo,AQs'], cold4bet:['KK+',''],
+  vs5bet:'TT+,AQs+,AKo,AQo', bbIso:'QQ+,AKs,AKo', limpCall:0.9,
+  post:{val:0.88,slow:0.45,bluff:0.03,cbet:0.05,semi:0.1,prot:0.02,cBase:0.16,cSlope:0.3,rThr:0.98,rBluff:0.01,bigV:0.4,bigB:0.4}}
+};
+const PROFILE_IDS=['nit','tag','lag','station'];
+function compileModel(src){
+  const M={label:src.label,open:{},vsOpen:{},post:{...src.post},limpCall:src.limpCall};
+  for(const p of ['UTG','HJ','CO','BTN','SB'])M.open[p]=R(src.open[p]);
+  for(const g of ['ip','sb','bb']){M.vsOpen[g]={};const t=src.vsOpen[g]||{};const fb=t.late||t.early||src.vsOpen.ip.late;
+    for(const og of ['early','late','sb']){const pr=t[og]||fb;M.vsOpen[g][og]=pairRange(pr[0],pr[1]);}}
+  for(const k of ['vs3bet','cold3bet','vs4bet','cold4bet'])M[k]=pairRange(src[k][0],src[k][1]);
+  M.vs5bet=R(src.vs5bet);M.bbIso=R(src.bbIso);M.limpOpen=src.limpOpen?R(src.limpOpen):null;return M;
+}
+const PROFILES={};for(const id of PROFILE_IDS)PROFILES[id]=compileModel(PROFILE_SRC[id]);
+const NEIGHBOR={nit:{tight:'nit',loose:'tag'},tag:{tight:'nit',loose:'lag'},lag:{tight:'tag',loose:'lag'},station:{tight:'tag',loose:'station'}};
+/* A bot = a player type plus private jitter the coach never sees. */
+function makeBotModel(type,rnd){
+  const t=(rnd()*0.6-0.3), nb=PROFILES[NEIGHBOR[type][t<0?'tight':'loose']], base=PROFILES[type], a=Math.abs(t);
+  const M={label:base.label,open:{},vsOpen:{},limpCall:base.limpCall,post:{}};
+  for(const p in base.open)M.open[p]=blend(base.open[p],nb.open[p],a);
+  for(const g in base.vsOpen){M.vsOpen[g]={};for(const og in base.vsOpen[g]){const x=base.vsOpen[g][og],y=nb.vsOpen[g][og];M.vsOpen[g][og]={r:blend(x.r,y.r,a),c:blend(x.c,y.c,a)};}}
+  for(const k of ['vs3bet','cold3bet','vs4bet','cold4bet'])M[k]={r:blend(base[k].r,nb[k].r,a),c:blend(base[k].c,nb[k].c,a)};
+  M.vs5bet=blend(base.vs5bet,nb.vs5bet,a);M.bbIso=blend(base.bbIso,nb.bbIso,a);M.limpOpen=base.limpOpen;
+  for(const k in base.post)M.post[k]=Math.min(1,Math.max(0,base.post[k]*(1+(rnd()*0.3-0.15))));
+  return M;
+}
+const ISO_POS={UTG:'UTG',HJ:'UTG',CO:'HJ',BTN:'CO',SB:'CO'};
+const posGroup=p=>p==='SB'?'sb':p==='BB'?'bb':'ip';
+const openerGroup=p=>(p==='UTG'||p==='HJ')?'early':p==='SB'?'sb':'late';
+
+/* preflop policy: returns {fold,call,raise}; 'call' with toCall 0 = check */
+function preflopDist(M,k,sit){
+  let r=0,c=0;
+  switch(sit.role){
+    case'unopened':r=M.open[sit.pos]?M.open[sit.pos][k]:0;if(M.limpOpen)c=Math.max(0,M.limpOpen[k]-r)*0.85;break;
+    case'limped':
+      if(sit.pos==='BB'&&sit.toCall===0){r=M.bbIso[k];c=1-r;}
+      else{r=M.open[ISO_POS[sit.pos]||'CO'][k];const o=M.open[sit.pos]?M.open[sit.pos][k]:0;c=Math.max(0,o-r)*M.limpCall;}break;
+    case'vsOpen':{const t=M.vsOpen[posGroup(sit.pos)][openerGroup(sit.openerPos)];r=t.r[k];c=t.c[k];break;}
+    case'vs3bet':case'cold3bet':case'vs4bet':case'cold4bet':{const t=M[sit.role];r=t.r[k];c=t.c[k];break;}
+    default:c=M.vs5bet[k];
+  }
+  if(!sit.canRaise){c=Math.min(1,c+r);r=0;}
+  r=Math.max(0,Math.min(1,r));c=Math.max(0,Math.min(1-r,c));
+  return{fold:Math.max(0,1-r-c),call:c,raise:r};
+}
+
+/* postflop hand-strength features for every combo on a board (cached) */
+const _featCache=new Map();
+function boardFeatures(board){
+  const key=board.join(',');let F=_featCache.get(key);if(F)return F;
+  const hs=new Float32Array(NC),fd=new Uint8Array(NC),oe=new Uint8Array(NC),gs=new Uint8Array(NC),sc=new Int32Array(NC),valid=new Uint8Array(NC);
+  const dead=new Uint8Array(52);board.forEach(c=>dead[c]=1);
+  const cards=board.slice();cards.push(0,0);const nb=board.length;
+  const idx=[];
+  for(let i=0;i<NC;i++){if(dead[CA[i]]||dead[CB[i]])continue;valid[i]=1;cards[nb]=CA[i];cards[nb+1]=CB[i];sc[i]=evalHand(cards);idx.push(i);}
+  idx.sort((a,b)=>sc[a]-sc[b]);const N=idx.length;
+  for(let p=0;p<N;){let q=p;while(q<N&&sc[idx[q]]===sc[idx[p]])q++;const v=(p+(q-p-1)/2)/(N-1);for(let t=p;t<q;t++)hs[idx[t]]=v;p=q;}
+  if(nb<5){
+    let bm=0;const bs=[0,0,0,0];board.forEach(c=>{bm|=1<<(c>>2);bs[c&3]++;});
+    const boardOuts=outRanks(bm);
+    for(const i of idx){const a=CA[i],b=CB[i];const cat=sc[i]>>20;
+      if(cat<5){for(let s=0;s<4;s++){const n=bs[s]+((a&3)===s?1:0)+((b&3)===s?1:0);if(n===4&&((a&3)===s||(b&3)===s))fd[i]=1;}}
+      if(cat<4){const m=bm|(1<<(a>>2))|(1<<(b>>2));const o=outRanks(m)&~boardOuts;const n=popc(o);if(n>=2)oe[i]=1;else if(n===1)gs[i]=1;}}
+  }
+  F={hs,fd,oe,gs,sc,valid};_featCache.set(key,F);if(_featCache.size>200)_featCache.delete(_featCache.keys().next().value);return F;
+}
+function popc(x){let n=0;while(x){x&=x-1;n++;}return n;}
+function outRanks(m){if(straightHigh(m)>=0)return 0;let o=0;for(let x=0;x<13;x++){if(m&(1<<x))continue;if(straightHigh(m|(1<<x))>=0)o|=1<<x;}return o;}
+
+const sig=(x,k)=>1/(1+Math.exp(-x/k));
+/* postflop policy: toCall 0 -> {check,betS,betL}; else {fold,call,raise} */
+function postflopDist(p,F,i,sit){
+  const st=sit.street;let s=F.hs[i];const fd=F.fd[i],oe=F.oe[i],gs=F.gs[i];
+  if(st<3)s=Math.min(1,s+(fd?(st===1?0.22:0.13):0)+(oe?(st===1?0.18:0.11):0)+(gs?(st===1?0.06:0.04):0));
+  const draw=st<3&&(fd||oe), multi=Math.max(0,sit.nOpp-1);
+  if(sit.toCall<=0){
+    if(!sit.canBet)return{check:1,betS:0,betL:0};
+    const pv=sig(s-(p.val+0.04*multi),0.035)*(1-p.slow);
+    let nb=0;
+    if(draw)nb=p.semi*(multi?0.7:1);
+    else if(s<0.4)nb=(p.bluff+(sit.isPFA&&st===1?p.cbet:0)-0.08*multi)*(st===3?0.9:1);
+    else if(s<p.val)nb=p.prot*(1-0.3*multi);
+    nb=Math.max(0,Math.min(1,nb));
+    const tot=pv+(1-pv)*nb;if(tot<=0)return{check:1,betS:0,betL:0};
+    const bv=s>0.92?Math.max(p.bigV,0.75):p.bigV;
+    const big=(pv*bv+(1-pv)*nb*p.bigB)/tot;
+    return{check:1-tot,betS:tot*(1-big),betL:tot*big};
+  }
+  const q=sit.toCall/(sit.pot+sit.toCall);
+  const thr=p.cBase+p.cSlope*q+0.06*multi+(st===3?0.03:0);
+  const noRaise=!sit.canRaise||sit.raises>=3;
+  const pc=sig(s-thr,0.04);
+  let prv=noRaise?0:Math.min(pc,sig(s-p.rThr,0.03)*0.75);
+  let prb=noRaise?0:(1-pc)*(draw?p.rBluff*2.5:(s<0.3?p.rBluff:0))*(sit.raises>=2?0.3:1);
+  const raise=prv+prb,call=pc-prv;
+  return{fold:Math.max(0,1-raise-call),call,raise};
+}
+function policyDist(M,i,sit){
+  if(sit.street===0)return preflopDist(M,CCLS[i],sit);
+  return postflopDist(M.post,boardFeatures(sit.board),i,sit);
+}
+function sampleKey(d){let u=RNG(),acc=0,last=null;for(const k in d){if(d[k]<=0)continue;last=k;acc+=d[k];if(u<acc)return k;}return last||Object.keys(d)[0];}
+
+/* ---------- game ---------- */
+const SB_AMT=1, BB_AMT=2, START_STACK=200;
+class Game{
+  constructor(players,button){
+    this.players=players; // [{name,isHero,type?,model?,stack}]
+    this.button=button==null?Math.floor(RNG()*6):button;
+    this.handNo=0;this.over=true;this.hist=[];
+  }
+  pos(seat){return POS6[(seat-this.button+6)%6];}
+  seatOf(pos){return (this.button+POS6.indexOf(pos))%6;}
+  get pot(){return this.s.reduce((a,x)=>a+x.total,0);}
+  startHand(){
+    this.handNo++;this.refills=[];
+    for(const p of this.players)if(p.stack<=0){p.stack=START_STACK;this.refills.push(p.name);}
+    this.button=(this.button+1)%6;
+    const deck=[];for(let c=0;c<52;c++)deck.push(c);
+    for(let i=51;i>0;i--){const j=Math.floor(RNG()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+    this.deck=deck;
+    this.s=this.players.map((p,i)=>({seat:i,name:p.name,isHero:!!p.isHero,stack:p.stack,start:p.stack,committed:0,total:0,folded:false,allIn:false,hole:[deck.pop(),deck.pop()],acted:false}));
+    this.board=[];this.street=0;this.log=[];this.decisions=[];this.heroDecisions=[];
+    this.raisers=[];this.limpers=0;this.currentBet=0;this.minRaise=BB_AMT;this.raisesStreet=0;this.lastAgg=null;this.over=false;this.result=null;this.shown={};
+    const sbS=(this.button+1)%6,bbS=(this.button+2)%6;
+    this._post(sbS,SB_AMT,'sb');this._post(bbS,BB_AMT,'bb');this.currentBet=BB_AMT;
+    this.needs=new Set(this.s.filter(x=>!x.allIn).map(x=>x.seat));
+    this.actor=this._next(bbS);
+    if(this.actor==null)this._endStreet();
+  }
+  _post(seat,amt,type){const x=this.s[seat];const a=Math.min(amt,x.stack);x.stack-=a;x.committed+=a;x.total+=a;if(x.stack===0)x.allIn=true;this.log.push({seat,street:0,type,amount:a,to:x.committed,pot:this.pot});}
+  _next(from){for(let k=1;k<=6;k++){const t=(from+k)%6;if(this.needs.has(t))return t;}return null;}
+  activeSeats(){return this.s.filter(x=>!x.folded).map(x=>x.seat);}
+  legal(seat){
+    const x=this.s[seat],toCall=Math.min(this.currentBet-x.committed,x.stack);
+    const others=this.s.filter(y=>!y.folded&&y.seat!==seat&&!y.allIn).length;
+    const maxTo=x.stack+x.committed;
+    const canRaise=x.stack>toCall&&others>0;
+    let minTo=this.currentBet===0?Math.min(BB_AMT,maxTo):Math.min(this.currentBet+this.minRaise,maxTo);
+    return{toCall,canCheck:toCall===0,canRaise,minTo,maxTo,currentBet:this.currentBet};
+  }
+  /* public situation a player faces (no hidden cards) */
+  situation(seat){
+    const L=this.legal(seat),pos=this.pos(seat);
+    if(this.street===0){
+      const nR=this.raisers.length;let role;
+      if(nR===0)role=this.limpers>0?'limped':'unopened';
+      else if(nR===1)role='vsOpen';
+      else if(nR===2)role=this.raisers[0]===seat?'vs3bet':'cold3bet';
+      else if(nR===3)role=this.raisers[1]===seat?'vs4bet':'cold4bet';
+      else role='vs5bet';
+      return{street:0,role,pos,openerPos:nR?this.pos(this.raisers[0]):null,toCall:L.toCall,canRaise:L.canRaise,pot:this.pot,stack:this.s[seat].stack};
+    }
+    return{street:this.street,board:this.board.slice(),pos,toCall:L.toCall,pot:this.pot,stack:this.s[seat].stack,
+      isPFA:this.raisers.length>0&&this.raisers[this.raisers.length-1]===seat,nOpp:this.activeSeats().length-1,
+      raises:this.raisesStreet,canRaise:L.canRaise,canBet:L.canRaise};
+  }
+  botDecide(seat){
+    const x=this.s[seat],M=this.players[seat].model,sit=this.situation(seat),L=this.legal(seat);
+    const i=CIDX[x.hole[0]*52+x.hole[1]];
+    const d=policyDist(M,i,sit);const key=sampleKey(d);
+    this.decisions.push({seat,logIdx:this.log.length,street:this.street,sit,key});
+    // translate key to a concrete action
+    if(key==='fold')return L.toCall>0?{type:'fold'}:{type:'check'};
+    if(key==='check')return{type:'check'};
+    if(key==='call')return L.toCall>0?{type:'call'}:{type:'check'};
+    let to;
+    if(this.street===0)to=this._preRaiseTo(seat,sit);
+    else if(key==='betS'||key==='betL'){const amt=Math.max(BB_AMT,Math.round((key==='betS'?0.33:0.75)*this.pot));to=amt>=0.75*x.stack?L.maxTo:amt;}
+    else{to=Math.round(3*this.currentBet);if(this.raisesStreet>=2||to>=0.5*L.maxTo)to=L.maxTo;}
+    to=Math.min(L.maxTo,Math.max(L.minTo,to));
+    return{type:this.currentBet===0?'bet':'raise',to};
+  }
+  _preRaiseTo(seat,sit){
+    const x=this.s[seat],max=x.stack+x.committed,cb=this.currentBet;let to;
+    if(sit.role==='unopened')to=sit.pos==='SB'?6:5;
+    else if(sit.role==='limped')to=8+2*this.limpers;
+    else if(sit.role==='vsOpen'){const ip=!(sit.pos==='SB'||sit.pos==='BB');const callers=this.s.filter(y=>!y.folded&&y.seat!==seat&&y.committed===cb&&y.seat!==this.raisers[0]).length;to=Math.round(cb*(ip?3:3.8))+callers*cb;}
+    else if(sit.role==='vs3bet'||sit.role==='cold3bet')to=Math.round(cb*2.3);
+    else to=max;
+    if(to>=0.4*max)to=max;return to;
+  }
+  act(seat,type,to){
+    if(this.over||seat!==this.actor)throw new Error('not your turn');
+    const x=this.s[seat],L=this.legal(seat),st=this.street;let amount=0;
+    if(type==='check'&&L.toCall>0)type='call';
+    if(type==='bet'&&this.currentBet>0)type='raise';
+    if(type==='raise'&&this.currentBet===0)type='bet';
+    if((type==='bet'||type==='raise')&&!L.canRaise)type=L.toCall>0?'call':'check';
+    if(type==='fold'){x.folded=true;}
+    else if(type==='check'){}
+    else if(type==='call'){amount=L.toCall;x.stack-=amount;x.committed+=amount;x.total+=amount;if(x.stack===0)x.allIn=true;
+      if(st===0&&this.raisers.length===0&&this.pos(seat)!=='BB')this.limpers++;}
+    else{to=Math.round(to);to=Math.max(L.minTo,Math.min(L.maxTo,to));amount=to-x.committed;
+      x.stack-=amount;x.committed=to;x.total+=amount;if(x.stack===0)x.allIn=true;
+      const inc=to-this.currentBet;if(inc>=this.minRaise)this.minRaise=inc;
+      this.currentBet=to;this.raisesStreet++;this.lastAgg=seat;if(st===0)this.raisers.push(seat);
+      this.needs=new Set(this.s.filter(y=>!y.folded&&!y.allIn&&y.seat!==seat).map(y=>y.seat));}
+    this.needs.delete(seat);x.acted=true;
+    this.log.push({seat,street:st,type,amount,to:x.committed,pot:this.pot,allIn:x.allIn});
+    this._advance(seat);
+  }
+  _advance(seat){
+    const alive=this.s.filter(y=>!y.folded);
+    if(alive.length===1)return this._finishFold(alive[0].seat);
+    if(this.needs.size===0)return this._endStreet();
+    this.actor=this._next(seat);
+  }
+  _endStreet(){
+    for(const y of this.s)y.committed=0;
+    this.currentBet=0;this.minRaise=BB_AMT;this.raisesStreet=0;this.lastAggStreet=null;
+    if(this.street===3)return this._showdown();
+    this.lastAgg=null;this.street++;
+    if(this.street===1)this.board.push(this.deck.pop(),this.deck.pop(),this.deck.pop());else this.board.push(this.deck.pop());
+    this.log.push({seat:-1,street:this.street,type:'deal',cards:this.board.slice(),pot:this.pot});
+    const canAct=this.s.filter(y=>!y.folded&&!y.allIn);
+    this.needs=new Set(canAct.map(y=>y.seat));
+    if(canAct.length<=1){this.needs=new Set();this.runout=true;return this._endStreet();}
+    this.actor=this._next(this.button);
+  }
+  _finishFold(w){
+    const pot=this.pot;this.s[w].stack+=pot;this.over=true;this.actor=null;
+    this.result={type:'fold',winners:[{seat:w,amount:pot}],pots:[{amount:pot,winners:[w]}]};this._close();
+  }
+  buildPots(){
+    const alive=this.s.filter(y=>!y.folded);
+    const levels=[...new Set(this.s.filter(y=>y.total>0).map(y=>y.total))].sort((a,b)=>a-b);
+    const pots=[];let prev=0;
+    for(const L of levels){let amt=0;for(const y of this.s)amt+=Math.max(0,Math.min(y.total,L)-prev);
+      const elig=alive.filter(y=>y.total>=L).map(y=>y.seat);
+      if(amt>0){if(pots.length&&pots[pots.length-1].elig.join()===elig.join())pots[pots.length-1].amount+=amt;else pots.push({amount:amt,elig});}
+      prev=L;}
+    // a pot nobody alive is eligible for (shouldn't happen) goes to the last alive contributor
+    return pots.filter(p=>p.amount>0);
+  }
+  _showdown(){
+    const alive=this.s.filter(y=>!y.folded);
+    const score={};for(const y of alive)score[y.seat]=evalHand(y.hole.concat(this.board));
+    // show order: last aggressor first (river), else first alive left of button; later players muck losers
+    let order=[];const startS=this.lastAgg!=null&&!this.s[this.lastAgg].folded?this.lastAgg:this._firstAliveAfter(this.button);
+    for(let k=0;k<6;k++){const t=(startS+k)%6;if(!this.s[t].folded)order.push(t);}
+    const allIn=!!this.runout||alive.some(y=>y.allIn);
+    let best=-1;this.mucked=[];
+    for(const t of order){
+      if(allIn||score[t]>=best)this.shown[t]=this.s[t].hole.slice(); // tabled
+      else this.mucked.push(t);                                       // mucked: never revealed
+      best=Math.max(best,score[t]);
+    }
+    const pots=this.buildPots(),res=[];const won={};
+    for(const p of pots){let b=-1,ws=[];for(const t of p.elig){if(score[t]>b){b=score[t];ws=[t];}else if(score[t]===b)ws.push(t);}
+      if(!ws.length)ws=[p.elig[0]];
+      ws.forEach(t=>{this.shown[t]=this.s[t].hole.slice();});
+      const share=Math.floor(p.amount/ws.length);let rem=p.amount-share*ws.length;
+      const ordered=[];for(let k=1;k<=6;k++){const t=(this.button+k)%6;if(ws.includes(t))ordered.push(t);}
+      for(const t of ordered){const a=share+(rem>0?1:0);if(rem>0)rem--;this.s[t].stack+=a;won[t]=(won[t]||0)+a;}
+      res.push({amount:p.amount,winners:ws,elig:p.elig});}
+    this.over=true;this.actor=null;
+    this.result={type:'showdown',pots:res,winners:Object.keys(won).map(s=>({seat:+s,amount:won[s]})),scores:score};this._close();
+  }
+  _firstAliveAfter(b){for(let k=1;k<=6;k++){const t=(b+k)%6;if(!this.s[t].folded)return t;}return b;}
+  _close(){for(const y of this.s)this.players[y.seat].stack=y.stack;}
+  /* snapshot of exactly what the hero knows right now */
+  heroSnapshot(seat){
+    const L=this.legal(seat),x=this.s[seat],sit=this.situation(seat);
+    this.decisions.push({seat,logIdx:this.log.length,street:this.street,sit});
+    return{hand:this.handNo,k:this.heroDecisions.length,street:this.street,board:this.board.slice(),hole:x.hole.slice(),heroSeat:seat,button:this.button,
+      logLen:this.log.length,toCall:L.toCall,minTo:L.minTo,maxTo:L.maxTo,canRaise:L.canRaise,currentBet:this.currentBet,minRaise:this.minRaise,
+      raisesStreet:this.raisesStreet,lastAgg:this.lastAgg,raisers:this.raisers.slice(),
+      seats:this.s.map(y=>({name:y.name,pos:this.pos(y.seat),stack:y.stack,committed:y.committed,total:y.total,folded:y.folded,allIn:y.allIn,start:y.start})),
+      sit,flagged:false,action:null};
+  }
+}
+
+/* ================= coach.js — public range model, pot math, grading, river solver, scheduling ================= */
+'use strict';
+const STREETS=['preflop','flop','turn','river'];
+const TREMBLE=0.03, TEMPER=0.6, PROFILE_FLOOR=0.02;
+const UNIFORM_PRIOR={nit:0.25,tag:0.25,lag:0.25,station:0.25};
+const fmt=x=>{if(x==null||isNaN(x))return'–';const r=Math.round(x*10)/10;return(Math.abs(r-Math.round(r))<1e-9?Math.round(r):r.toFixed(1)).toString();};
+const pct=(x,d=1)=>(x==null||isNaN(x))?'–':(x*100).toFixed(d).replace(/\.0$/,'')+'%';
+function hashStr(s){let h=2166136261;for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+const sum=a=>{let s=0;for(let i=0;i<a.length;i++)s+=a[i];return s;};
+
+/* ---------- hand records (only what was public, plus the hero's own cards) ---------- */
+function makeRecord(g,heroSeat){
+  const net={};g.s.forEach(x=>net[x.seat]=g.players[x.seat].stack-x.start);
+  return{hand:g.handNo,at:Date.now(),button:g.button,heroSeat,
+    players:g.s.map(x=>({name:x.name,seat:x.seat,start:x.start,pos:g.pos(x.seat)})),
+    hole:g.s[heroSeat].hole.slice(),board:g.board.slice(),log:g.log.map(e=>({...e})),
+    dec:g.decisions.map(d=>({seat:d.seat,logIdx:d.logIdx,street:d.street,sit:d.sit})), // bot's sampled key is NOT stored
+    shown:{...g.shown},result:{type:g.result.type,pots:g.result.pots.map(p=>({amount:p.amount,winners:p.winners})),net},
+    snaps:g.heroDecisions.map(s=>({...s})),ll:{}};
+}
+
+/* ---------- mapping a public action to a policy key ---------- */
+function publicKey(e,sit){
+  if(e.type==='fold')return'fold';if(e.type==='check')return'check';if(e.type==='call')return'call';
+  if(sit.street===0)return'raise';
+  if(e.type==='bet')return(e.amount/Math.max(1,sit.pot))<0.5?'betS':'betL';
+  return'raise';
+}
+function keyProb(d,key,sit){
+  let p=key==='check'?(d.check!=null?d.check:d.fold+d.call):(d[key]||0);
+  const n=sit.toCall>0?(sit.canRaise?3:2):(sit.street===0?(sit.canRaise?2:1):(sit.canBet?3:1));
+  return(1-TREMBLE)*p+TREMBLE/n;
+}
+function likelihoodVec(M,sit,key){
+  const out=new Float64Array(NC);
+  if(sit.street===0){const bc=new Float64Array(169);for(let k=0;k<169;k++)bc[k]=keyProb(preflopDist(M,k,sit),key,sit);for(let i=0;i<NC;i++)out[i]=bc[CCLS[i]];}
+  else{const F=boardFeatures(sit.board);for(let i=0;i<NC;i++)out[i]=F.valid[i]?keyProb(postflopDist(M.post,F,i,sit),key,sit):0;}
+  return out;
+}
+
+/* ---------- public range model: mixture over player types ---------- */
+function rangeModel(rec,seat,uptoLog,dead,prior,profiles){
+  profiles=profiles||PROFILE_IDS;prior=prior||UNIFORM_PRIOR;
+  const decs=rec.dec.filter(d=>d.seat===seat&&d.logIdx<uptoLog);
+  const blk=blockedMask(dead),W={};
+  for(const p of profiles){W[p]=new Float64Array(NC);for(let i=0;i<NC;i++)W[p][i]=blk[i]?0:1;}
+  const snap=()=>{const mix=new Float64Array(NC),post={};let z=0;
+    for(const p of profiles){const w=W[p],pr=prior[p]||0;post[p]=pr*sum(w);z+=post[p];for(let i=0;i<NC;i++)mix[i]+=pr*w[i];}
+    for(const p of profiles)post[p]=z>0?post[p]/z:1/profiles.length;
+    return{mix,post,byP:Object.fromEntries(profiles.map(p=>[p,W[p].slice()]))};};
+  const steps=[{entry:null,...snap()}];
+  for(const d of decs){const e=rec.log[d.logIdx],key=publicKey(e,d.sit);
+    for(const p of profiles){const L=likelihoodVec(PROFILES[p],d.sit,key),w=W[p];for(let i=0;i<NC;i++)w[i]*=L[i];}
+    steps.push({entry:e,sit:d.sit,key,...snap()});}
+  const last=steps[steps.length-1];
+  return{steps,mix:last.mix,post:last.post,byP:last.byP,blk,decs};
+}
+/* marginal log-likelihood of one player's public actions in a finished hand, per type */
+function handLL(rec,seat){
+  const decs=rec.dec.filter(d=>d.seat===seat);if(!decs.length)return null;
+  const out={};
+  if(rec.shown&&rec.shown[seat]){const c=rec.shown[seat],i=CIDX[c[0]*52+c[1]];
+    for(const p of PROFILE_IDS){let ll=0;for(const d of decs){const key=publicKey(rec.log[d.logIdx],d.sit);ll+=Math.log(likelihoodVec(PROFILES[p],d.sit,key)[i]||1e-12);}out[p]=ll;}
+    return out;}
+  const dead=rec.board.concat(seat===rec.heroSeat?[]:rec.hole);
+  const m=rangeModel(rec,seat,Infinity,dead,UNIFORM_PRIOR);
+  const nValid=NC-sum(m.blk);
+  for(const p of PROFILE_IDS)out[p]=Math.log(Math.max(1e-300,sum(m.byP[p])/nValid));
+  return out;
+}
+function profilePrior(name,records){
+  const ll={nit:0,tag:0,lag:0,station:0};let n=0;
+  for(const r of records)if(r.ll&&r.ll[name]){n++;for(const p of PROFILE_IDS)ll[p]+=r.ll[name][p];}
+  const mx=Math.max(...PROFILE_IDS.map(p=>ll[p]));const o={};let z=0;
+  for(const p of PROFILE_IDS){o[p]=0.25*Math.exp(TEMPER*(ll[p]-mx));z+=o[p];}
+  z=0;for(const p of PROFILE_IDS){o[p]=Math.max(PROFILE_FLOOR,o[p]);z+=o[p];}
+  for(const p of PROFILE_IDS)o[p]/=z;o._hands=n;return o;
+}
+
+/* ---------- per-class views ---------- */
+function classStats(w,blk){const mass=new Float64Array(169),avail=new Int16Array(169);
+  for(let i=0;i<NC;i++){if(blk&&blk[i])continue;const k=CCLS[i];avail[k]++;mass[k]+=w[i];}
+  let mx=0;const freq=new Float64Array(169);for(let k=0;k<169;k++){freq[k]=avail[k]?mass[k]/avail[k]:0;mx=Math.max(mx,freq[k]);}
+  const rel=new Float64Array(169);for(let k=0;k<169;k++)rel[k]=mx>0?freq[k]/mx:0;
+  return{mass,avail,rel,total:sum(mass)};}
+const PRE_BUCKETS=['Pairs','Ace-x','Broadways','Suited connectors','Other'];
+const POST_BUCKETS=['Two pair or better','Top pair / overpair','Weaker pair','Draw','Air / overcards'];
+function bucketOf(i,board){
+  const a=CA[i],b=CB[i],ra=a>>2,rb=b>>2;
+  if(!board.length){if(ra===rb)return 0;if(ra===12||rb===12)return 1;if(ra>=8&&rb>=8)return 2;if((a&3)===(b&3)&&Math.abs(ra-rb)<=3)return 3;return 4;}
+  const cat=evalHand([a,b,...board])>>20,bcat=evalHand(board)>>20;
+  if(cat>=3&&cat>bcat)return 0;
+  if(cat===2&&bcat===0)return 0;
+  if((cat===1&&bcat===0)||(cat===2&&bcat===1)){const br=board.map(c=>c>>2),top=Math.max(...br);
+    let pr=-1;if(ra===rb&&!br.includes(ra))pr=ra;else if(br.includes(ra))pr=ra;else if(br.includes(rb))pr=rb;
+    if(pr>=0){if(ra===rb&&pr>top)return 1;if(pr===top)return 1;return 2;}}
+  if(board.length<5){const F=boardFeatures(board);if(F.fd[i]||F.oe[i])return 3;}
+  return 4;
+}
+function composition(w,board){const n=board.length?POST_BUCKETS.length:PRE_BUCKETS.length,o=new Float64Array(n);let z=0;
+  for(let i=0;i<NC;i++){if(w[i]<=0)continue;o[bucketOf(i,board)]+=w[i];z+=w[i];}
+  for(let k=0;k<n;k++)o[k]=z>0?o[k]/z:0;return o;}
+
+/* ---------- pot math from a snapshot ---------- */
+function potMath(snap){
+  const me=snap.seats[snap.heroSeat],potNow=snap.seats.reduce((a,x)=>a+x.total,0),C=snap.toCall;
+  const myAfter=me.total+C;let elig=0;
+  snap.seats.forEach((x,i)=>{elig+=i===snap.heroSeat?myAfter:Math.min(x.total,myAfter);});
+  return{potNow,toCall:C,potAfter:potNow+C,elig,breakEven:C>0?C/elig:0,sidePot:elig<potNow+C,myStack:me.stack};
+}
+function potBreakdown(rec,snap){
+  const lines=[],byStreet=[{},{},{},{}];
+  for(let k=0;k<snap.logLen;k++){const e=rec.log[k];if(e.seat<0||!e.amount)continue;byStreet[e.street][e.seat]=(byStreet[e.street][e.seat]||0)+e.amount;}
+  let run=0;
+  for(let st=0;st<=snap.street;st++){const m=byStreet[st];const parts=Object.keys(m).map(s=>({s:+s,a:m[s]}));if(!parts.length)continue;
+    const t=parts.reduce((a,p)=>a+p.a,0);run+=t;
+    lines.push({street:STREETS[st],parts:parts.map(p=>({who:p.s===snap.heroSeat?'You':snap.seats[p.s].name,pos:snap.seats[p.s].pos,a:p.a,folded:snap.seats[p.s].folded})),total:t,running:run,current:st===snap.street});}
+  return lines;
+}
+
+/* ---------- describing lines in words ---------- */
+function actionPhrase(e,sit,pos,isFirstRaise){
+  const st=STREETS[e.street];
+  if(e.street===0){
+    if(e.type==='raise')return sit&&sit.role==='unopened'?`open-raise from the ${pos}`:sit&&sit.role==='vsOpen'?`3-bet from the ${pos}`:sit&&sit.role==='limped'?`raise over a limp from the ${pos}`:`re-raise preflop from the ${pos}`;
+    if(e.type==='call')return sit&&sit.role==='unopened'?`limp from the ${pos}`:sit&&sit.role==='limped'?`limp behind from the ${pos}`:`call a raise from the ${pos}`;
+    if(e.type==='check')return'check the big blind';return'fold preflop';}
+  if(e.type==='bet')return`bet ${e.amount/Math.max(1,sit.pot)<0.5?'small':'big'} on the ${st}`;
+  if(e.type==='check')return`check the ${st}`;if(e.type==='call')return`call a bet on the ${st}`;if(e.type==='raise')return`raise on the ${st}`;return`fold the ${st}`;
+}
+function villainLine(rec,seat,uptoLog){
+  const decs=rec.dec.filter(d=>d.seat===seat&&d.logIdx<uptoLog);const pos=rec.players[seat].pos;
+  return decs.map(d=>({phrase:actionPhrase(rec.log[d.logIdx],d.sit,pos),entry:rec.log[d.logIdx]}));
+}
+function joinPhrases(ps){if(ps.length<=1)return ps[0]||'';return ps.slice(0,-1).join(', ')+', then '+ps[ps.length-1];}
+
+/* ---------- equity ---------- */
+function pairEquities(hole,board,w,seed){
+  const rnd=mulberry32(seed>>>0),dead=new Uint8Array(52);hole.concat(board).forEach(c=>dead[c]=1);
+  const eq=new Float64Array(NC).fill(NaN),deck=[];for(let c=0;c<52;c++)if(!dead[c])deck.push(c);
+  const need=5-board.length,hand=new Array(7),vill=new Array(7);
+  let runs=[];
+  if(need===0)runs=[[]];
+  else if(need===1)runs=deck.map(c=>[c]);
+  else{const K=need===2?160:90;for(let t=0;t<K;t++){const d=deck.slice();const r=[];for(let q=0;q<need;q++){const j=q+Math.floor(rnd()*(d.length-q));[d[q],d[j]]=[d[j],d[q]];r.push(d[q]);}runs.push(r);}}
+  for(let i=0;i<NC;i++){if(!(w[i]>0))continue;const a=CA[i],b=CB[i];if(dead[a]||dead[b])continue;
+    let s=0,n=0;
+    for(const r of runs){if(r.includes(a)||r.includes(b))continue;const bd=board.concat(r);
+      const h=evalHand([hole[0],hole[1],...bd]),v=evalHand([a,b,...bd]);s+=h>v?1:h===v?0.5:0;n++;}
+    eq[i]=n?s/n:0.5;}
+  return{eq,runs:runs.length};
+}
+function eqVs(eq,w){let s=0,z=0;for(let i=0;i<NC;i++){if(!(w[i]>0)||isNaN(eq[i]))continue;s+=w[i]*eq[i];z+=w[i];}return z>0?s/z:NaN;}
+
+/* ---------- Beta interval for a frequency read ---------- */
+function betaInterval(a,b,lo=0.1,hi=0.9){
+  const N=800,xs=[],cdf=[];let z=0;
+  for(let k=0;k<N;k++){const x=(k+0.5)/N;const lp=(a-1)*Math.log(x)+(b-1)*Math.log(1-x);xs.push(x);cdf.push(lp);}
+  const mx=Math.max(...cdf);let acc=0;const c2=cdf.map(v=>{acc+=Math.exp(v-mx);return acc;});z=acc;
+  const q=p=>{const t=p*z;for(let k=0;k<N;k++)if(c2[k]>=t)return xs[k];return 1;};
+  return{mean:a/(a+b),lo:q(lo),hi:q(hi)};
+}
+
+/* ---------- restricted heads-up river solver (CFR+) ---------- */
+/* Tree: OOP check|bet b. bet -> IP fold|call. check -> IP check (showdown) | bet b (if ipCanBet) -> OOP fold|call. No raises. */
+function solveRiver(spec){
+  const{P,b}=spec,h=P/2,n=spec.oop.w.length,m=spec.ip.w.length,iters=spec.iters||400;
+  const wO=Float64Array.from(spec.oop.w),wI=Float64Array.from(spec.ip.w);
+  const Mm=new Float32Array(n*m),Rm=new Float32Array(n*m);
+  for(let i=0;i<n;i++)for(let j=0;j<m;j++){let ok=1,res;
+    if(spec.res){res=spec.res[i][j];}else{const A=spec.oop.cards[i],B=spec.ip.cards[j];if(A[0]===B[0]||A[0]===B[1]||A[1]===B[0]||A[1]===B[1])ok=0;const so=spec.oop.score[i],si=spec.ip.score[j];res=so>si?1:so<si?-1:0;}
+    Mm[i*m+j]=ok;Rm[i*m+j]=ok*res;}
+  const mv=(A,x,out)=>{for(let i=0;i<n;i++){let s=0;const o=i*m;for(let j=0;j<m;j++)s+=A[o+j]*x[j];out[i]=s;}return out;};
+  const mvt=(A,y,out)=>{out.fill(0);for(let i=0;i<n;i++){const yi=y[i];if(!yi)continue;const o=i*m;for(let j=0;j<m;j++)out[j]+=A[o+j]*yi;}return out;};
+  const rmp=(a,b2)=>{const s=a+b2;return s>0?a/s:0.5;};
+  // regrets
+  const rOB=new Float64Array(n),rOC=new Float64Array(n),rO2C=new Float64Array(n),rO2F=new Float64Array(n);
+  const rIC=new Float64Array(m),rIF=new Float64Array(m),rIB=new Float64Array(m),rIK=new Float64Array(m);
+  const aOB=new Float64Array(n),aO2C=new Float64Array(n),aO2N=new Float64Array(n),aIC=new Float64Array(m),aIB=new Float64Array(m);let aN=0;
+  const sB=new Float64Array(n),oC=new Float64Array(n),iC=new Float64Array(m),iB=new Float64Array(m);
+  const X=new Float64Array(m),Y=new Float64Array(n),t1=new Float64Array(n),t2=new Float64Array(n),t3=new Float64Array(n),t4=new Float64Array(n),t5=new Float64Array(n);
+  const u1=new Float64Array(m),u2=new Float64Array(m),u3=new Float64Array(m),u4=new Float64Array(m),u5=new Float64Array(m);
+  const canO=spec.oopCanBet!==false,canI=spec.ipCanBet!==false;
+  function oopValues(sBv,oCv,iCv,iBv,out){ // returns {bet,chk,f2,c2}
+    for(let j=0;j<m;j++)X[j]=wI[j]*(1-iCv[j]);mv(Mm,X,t1);
+    for(let j=0;j<m;j++)X[j]=wI[j]*iCv[j];mv(Rm,X,t2);
+    for(let j=0;j<m;j++)X[j]=wI[j]*(1-iBv[j]);mv(Rm,X,t3);
+    for(let j=0;j<m;j++)X[j]=wI[j]*iBv[j];mv(Mm,X,t4);mv(Rm,X,t5);
+    for(let i=0;i<n;i++){out.bet[i]=t1[i]*h+t2[i]*(h+b);out.f2[i]=-h*t4[i];out.c2[i]=(h+b)*t5[i];out.sd[i]=h*t3[i];out.reach[i]=0;}
+    return out;}
+  function ipValues(sBv,oCv,out){
+    for(let i=0;i<n;i++)Y[i]=wO[i]*sBv[i];mvt(Mm,Y,u1);mvt(Rm,Y,u2);
+    for(let i=0;i<n;i++)Y[i]=wO[i]*(1-sBv[i]);mvt(Rm,Y,u3);
+    for(let i=0;i<n;i++)Y[i]=wO[i]*(1-sBv[i])*(1-oCv[i]);mvt(Mm,Y,u4);
+    for(let i=0;i<n;i++)Y[i]=wO[i]*(1-sBv[i])*oCv[i];mvt(Rm,Y,u5);
+    for(let j=0;j<m;j++){out.fold[j]=-h*u1[j];out.call[j]=-(h+b)*u2[j];out.chk[j]=-h*u3[j];out.bet[j]=h*u4[j]-(h+b)*u5[j];}
+    return out;}
+  const OV={bet:new Float64Array(n),f2:new Float64Array(n),c2:new Float64Array(n),sd:new Float64Array(n),reach:new Float64Array(n)};
+  const IV={fold:new Float64Array(m),call:new Float64Array(m),chk:new Float64Array(m),bet:new Float64Array(m)};
+  const oopStrat=()=>{for(let i=0;i<n;i++){sB[i]=canO?rmp(rOB[i],rOC[i]):0;oC[i]=rmp(rO2C[i],rO2F[i]);}};
+  const ipStrat=()=>{for(let j=0;j<m;j++){iC[j]=rmp(rIC[j],rIF[j]);iB[j]=canI?rmp(rIB[j],rIK[j]):0;}};
+  oopStrat();ipStrat();
+  for(let t=1;t<=iters;t++){ // CFR+ with alternating updates and linear averaging
+    oopValues(sB,oC,iC,iB,OV);
+    for(let i=0;i<n;i++){const v2=(1-oC[i])*OV.f2[i]+oC[i]*OV.c2[i];const chk=OV.sd[i]+v2;const v=sB[i]*OV.bet[i]+(1-sB[i])*chk;
+      rOB[i]=Math.max(0,rOB[i]+OV.bet[i]-v);rOC[i]=Math.max(0,rOC[i]+chk-v);
+      rO2C[i]=Math.max(0,rO2C[i]+OV.c2[i]-v2);rO2F[i]=Math.max(0,rO2F[i]+OV.f2[i]-v2);}
+    oopStrat();
+    for(let i=0;i<n;i++){aOB[i]+=t*sB[i];aO2C[i]+=t*(1-sB[i])*oC[i];aO2N[i]+=t*(1-sB[i]);}
+    ipValues(sB,oC,IV);
+    for(let j=0;j<m;j++){const v1=(1-iC[j])*IV.fold[j]+iC[j]*IV.call[j];const v2=(1-iB[j])*IV.chk[j]+iB[j]*IV.bet[j];
+      rIC[j]=Math.max(0,rIC[j]+IV.call[j]-v1);rIF[j]=Math.max(0,rIF[j]+IV.fold[j]-v1);
+      rIB[j]=Math.max(0,rIB[j]+IV.bet[j]-v2);rIK[j]=Math.max(0,rIK[j]+IV.chk[j]-v2);}
+    ipStrat();
+    for(let j=0;j<m;j++){aIC[j]+=t*iC[j];aIB[j]+=t*iB[j];}
+    aN+=t;}
+  const SB=new Float64Array(n),OC=new Float64Array(n),IC=new Float64Array(m),IB=new Float64Array(m);
+  for(let i=0;i<n;i++){SB[i]=aOB[i]/aN;OC[i]=aO2N[i]>1e-12?aO2C[i]/aO2N[i]:oC[i];}
+  for(let j=0;j<m;j++){IC[j]=aIC[j]/aN;IB[j]=aIB[j]/aN;}
+  // values against the average strategies
+  oopValues(SB,OC,IC,IB,OV);ipValues(SB,OC,IV);
+  let Z=0;for(let i=0;i<n;i++)for(let j=0;j<m;j++)Z+=wO[i]*wI[j]*Mm[i*m+j];
+  let vO=0,brO=0,brI=0;
+  for(let i=0;i<n;i++){const v2=(1-OC[i])*OV.f2[i]+OC[i]*OV.c2[i],chk=OV.sd[i]+v2;vO+=wO[i]*(SB[i]*OV.bet[i]+(1-SB[i])*chk);
+    const b2=Math.max(OV.f2[i],OV.c2[i]),bchk=OV.sd[i]+b2;brO+=wO[i]*(canO?Math.max(OV.bet[i],bchk):bchk);}
+  for(let j=0;j<m;j++){brI+=wI[j]*(Math.max(IV.fold[j],IV.call[j])+(canI?Math.max(IV.chk[j],IV.bet[j]):IV.chk[j]));}
+  vO/=Z;brO/=Z;brI/=Z;
+  const expl=((brO-vO)+(brI+vO))/2; // average gain from best-responding, chips
+  return{oop:{bet:SB,call:OC},ip:{call:IC,bet:IB},value:vO,expl,explPct:expl/P,iters,Z,OV,IV,wO,wI,Mm,n,m,P,b};
+}
+/* per-hand EV (chips, relative to the cheaper option) at the hero's node */
+function nodeEVs(sol,side,idx,node){
+  const{OV,IV,wO,wI,Mm,n,m}=sol;
+  if(side==='oop'){let reach=0;
+    if(node==='root'){for(let j=0;j<m;j++)reach+=wI[j]*Mm[idx*m+j];const v2=(1-sol.oop.call[idx])*OV.f2[idx]+sol.oop.call[idx]*OV.c2[idx];return{bet:OV.bet[idx]/reach,check:(OV.sd[idx]+v2)/reach};}
+    for(let j=0;j<m;j++)reach+=wI[j]*Mm[idx*m+j]*sol.ip.bet[j];
+    return reach>0?{call:OV.c2[idx]/reach,fold:OV.f2[idx]/reach,reach}:null;}
+  let reach=0;
+  if(node==='vsBet'){for(let i=0;i<n;i++)reach+=wO[i]*Mm[i*m+idx]*sol.oop.bet[i];return reach>0?{call:IV.call[idx]/reach,fold:IV.fold[idx]/reach,reach}:null;}
+  for(let i=0;i<n;i++)reach+=wO[i]*Mm[i*m+idx]*(1-sol.oop.bet[i]);return reach>0?{bet:IV.bet[idx]/reach,check:IV.chk[idx]/reach,reach}:null;
+}
+/* the spec's benchmark: pot 100, bet 75, bettor 50% value / 50% bluff candidates, defender a pure bluff-catcher */
+function benchmark(){
+  const sol=solveRiver({P:100,b:75,iters:4000,oopCanBet:true,ipCanBet:false,res:[[1],[-1]],oop:{w:[0.5,0.5]},ip:{w:[1]}});
+  const betV=sol.oop.bet[0],betB=sol.oop.bet[1],call=sol.ip.call[0];
+  const bluffShare=0.5*betB/(0.5*betV+0.5*betB);
+  return{betV,betB,call,bluffShare,expl:sol.expl,iters:sol.iters,exact:{betB:3/7,call:4/7,bluffShare:0.3}};
+}
+
+/* ---------- interest score: which decision is worth reviewing ---------- */
+function interest(rec,snap){
+  let s=0;const pm=potMath(snap);const facing=snap.toCall>0;
+  if(snap.flagged)s+=100;
+  if(snap.street>0){s+=facing?30:18;if(snap.street===3)s+=10;}
+  else if(facing){const k=classOfCards(snap.hole[0],snap.hole[1]);const t=PROFILES.tag.vsOpen[posGroup(snap.seats[snap.heroSeat].pos)][openerGroup(snap.raisers.length?snap.seats[snap.raisers[0]].pos:'CO')];
+    const cont=t.r[k]+t.c[k];s+=8+(cont>0.15&&cont<0.85?14:0)+(snap.raisers.length>=2?8:0);}
+  else{const k=classOfCards(snap.hole[0],snap.hole[1]);const o=PROFILES.tag.open[snap.seats[snap.heroSeat].pos];if(o){const w=o[k];s+=(w>0.1&&w<0.9)?9:0;}}
+  s+=Math.min(20,pm.potNow/12);if(pm.toCall>=snap.seats[snap.heroSeat].stack)s+=12;
+  return s;
+}
+const WORTH=15;
+
+/* ---------- spaced repetition ---------- */
+const LADDER=[10*60e3,24*3600e3,3*24*3600e3,7*24*3600e3,21*24*3600e3,60*24*3600e3];
+const SKILLS={pot:'Count the pot',price:'Calculate the price',range:'Infer a range',play:'Choose and defend a play'};
+function schedule(item,ok,handNo){
+  const now=Date.now();item.history=item.history||[];item.history.push({at:now,ok});
+  if(ok){item.reps=(item.reps||0)+1;item.interval=LADDER[Math.min(item.reps-1,LADDER.length-1)];item.dueHand=null;}
+  else{item.lapses=(item.lapses||0)+1;item.reps=0;item.interval=3*60e3;item.dueHand=handNo+2;}
+  item.due=now+item.interval;return item;
+}
+const isDue=(it,handNo)=>Date.now()>=it.due||(it.dueHand!=null&&handNo>=it.dueHand);
+
+/* ---------- reasoning rubric (deterministic) ---------- */
+function rubric(text,kind){
+  const t=(text||'').toLowerCase(),out=[];
+  if(!t.trim())return[{ok:false,msg:'No reasoning written. One sentence about price, range and this opponent is enough.'}];
+  const has=re=>re.test(t);
+  out.push(has(/odds|price|%|percent|break.?even|need to win|pot odds|ratio/)?{ok:true,msg:'You tied the decision to the price.'}:{ok:false,msg:'You did not mention the price you were getting.'});
+  out.push(has(/range|hands|combo|bluff|value|draw|set|pair|flush|straight|air/)?{ok:true,msg:'You reasoned about the hands he could hold.'}:{ok:false,msg:'Name the hands he could hold, not just a feeling.'});
+  out.push(has(/seen|saw|showdown|show|aggressive|passive|tight|loose|station|nit|bluffs? a lot|maniac|stats?|vpip|times|observed|read/)?{ok:true,msg:'You cited evidence about this opponent.'}:{ok:false,msg:'You did not cite anything you observed about this opponent.'});
+  if(kind==='range'&&has(/less likely|removes|rules out|would have|instead|check(ed)? (back|behind)|capped|polar/))out.push({ok:true,msg:'You explained what the last action removed.'});
+  if(has(/block|blocker|card removal|i have the|holding the/))out.push({ok:true,msg:'You used card removal.'});
+  return out;
+}
+
+/* ================= review.js — builds a review of one decision; questions, grading, analysis, drills ================= */
+'use strict';
+
+/* ---------- public observations of one player (from finished hands only) ---------- */
+function observe(name,records,opts){
+  opts=opts||{};
+  const o={name,hands:0,vpip:0,pfr:0,sawFlop:0,wtsd:0,bets:0,calls:0,faced:0,folds:0,betRec:[],facedRec:[],showdowns:[]};
+  for(const rec of records){
+    const seat=rec.players.findIndex(p=>p.name===name);if(seat<0||seat===rec.heroSeat&&name!=='You')continue;
+    o.hands++;let vp=false,pr=false,folded=false;
+    for(let k=0;k<rec.log.length;k++){const e=rec.log[k];if(e.seat!==seat)continue;
+      if(e.type==='fold')folded=true;
+      if(e.street===0){if(e.type==='call'||e.type==='raise')vp=true;if(e.type==='raise')pr=true;continue;}
+      const d=rec.dec.find(x=>x.seat===seat&&x.logIdx===k),sit=d&&d.sit;
+      if(e.type==='bet'||e.type==='raise'){o.bets++;o.betRec.push({hand:rec.hand,street:e.street,frac:sit?e.amount/Math.max(1,sit.pot):1,k});}
+      if(e.type==='call')o.calls++;
+      if(sit&&sit.toCall>0&&(e.type==='fold'||e.type==='call'||e.type==='raise')){o.faced++;if(e.type==='fold')o.folds++;o.facedRec.push({hand:rec.hand,street:e.street,frac:sit.toCall/Math.max(1,sit.pot),resp:e.type});}
+    }
+    if(vp)o.vpip++;if(pr)o.pfr++;
+    const reachedFlop=rec.log.some(e=>e.type==='deal'&&e.street===1)&&!rec.log.some((e)=>e.seat===seat&&e.type==='fold'&&e.street===0);
+    if(reachedFlop)o.sawFlop++;
+    const atSD=rec.result.type==='showdown'&&!folded;if(atSD)o.wtsd++;
+    const cards=rec.shown&&rec.shown[seat];
+    // classify this hand's bets once the cards are public
+    if(opts.classify!==false)for(const b of o.betRec)if(b.hand===rec.hand){b.sd=atSD;b.shown=!!cards;
+      if(cards){const bd=rec.board.slice(0,b.street+2),F=boardFeatures(bd),i=CIDX[cards[0]*52+cards[1]];
+        const draw=b.street<3&&(F.fd[i]||F.oe[i]);b.kind=F.hs[i]>=0.55?'value':draw?'semi-bluff':'bluff';b.cards=cards;}}
+    if(cards)o.showdowns.push({hand:rec.hand,cards,board:rec.board.slice(),desc:describeHand(cards.concat(rec.board))});
+  }
+  return o;
+}
+const sizeBucket=f=>f<0.5?'small':'big';
+
+/* ---------- which opponent a decision is about ---------- */
+function chooseVillain(snap){
+  const me=snap.heroSeat,alive=[];for(let k=1;k<6;k++){const s=(me+k)%6;if(!snap.seats[s].folded)alive.push(s);}
+  if(!alive.length)return null;
+  if(snap.toCall>0&&snap.lastAgg!=null&&snap.lastAgg!==me)return snap.lastAgg;
+  if(snap.street===0&&snap.raisers.length===0)return null;
+  if(alive.length===1)return alive[0];
+  const pfa=snap.raisers.length?snap.raisers[snap.raisers.length-1]:null;
+  if(pfa!=null&&pfa!==me&&alive.includes(pfa))return pfa;
+  return alive[0];
+}
+function spotType(snap){
+  if(snap.street===0){if(snap.raisers.length===0)return'rfi';return snap.toCall>0?'pre-facing':'pre-open';}
+  return snap.toCall>0?'post-facing':'post-open';
+}
+function firstPostflopActor(button,a,b){for(let k=1;k<=6;k++){const s=(button+k)%6;if(s===a||s===b)return s;}return a;}
+
+/* ---------- build a review ---------- */
+function buildReview(rec,k,records){
+  const snap=rec.snaps[k],spot=spotType(snap),pm=potMath(snap),me=snap.heroSeat;
+  const prev=records.filter(r=>r.hand<rec.hand);
+  const R={rec,snap,k,spot,pm,breakdown:potBreakdown(rec,snap),questions:[],answers:{},results:{},id:rec.hand+'-'+k,prev};
+  R.villain=chooseVillain(snap);
+  R.dead=snap.hole.concat(snap.board);
+  R.heroCombo=CIDX[snap.hole[0]*52+snap.hole[1]];
+  R.heads=snap.seats.filter((x,i)=>i!==me&&!x.folded).length===1;
+  if(R.villain!=null){
+    const vname=rec.players[R.villain].name;R.vname=vname;
+    R.prior=profilePrior(vname,prev);
+    R.model=rangeModel(rec,R.villain,snap.logLen,R.dead,R.prior);
+    R.line=villainLine(rec,R.villain,snap.logLen);
+    R.obs=observe(vname,prev);
+  }
+  // action the hero actually took
+  const a=snap.action;R.heroAction=a?a.type:null;R.heroTo=a?a.to:null;
+  R.heroBet=(a&&(a.type==='bet'||a.type==='raise'))?a.to-snap.seats[me].committed:null;
+  // bet size used for "open" spots: the hero's actual bet, else 3/4 pot
+  if(spot==='post-open')R.betSize=R.heroBet&&R.heroAction==='bet'?R.heroBet:Math.max(2,Math.round(0.75*pm.potNow));
+  if(spot==='rfi'){const pos=snap.seats[me].pos;R.openTo=a&&a.type==='raise'?a.to:(pos==='SB'?6:5);R.betSize=R.openTo-snap.seats[me].committed;}
+  makeQuestions(R);
+  return R;
+}
+
+/* ---------- questions (2–3, one at a time) ---------- */
+function makeQuestions(R){
+  const{snap,spot,pm}=R,Q=R.questions,st=STREETS[snap.street];
+  if(spot==='post-facing'||spot==='pre-facing'){
+    Q.push({kind:'potprice',skills:['pot','price'],title:'Count the pot and the price',
+      fields:[{id:'call',label:'How many more chips do you need to call?',unit:'chips',ans:pm.toCall,tol:0.5,skill:'pot'},
+              {id:'potAfter',label:pm.sidePot?'How big is the pot you can win after your call?':'How big is the pot after your call?',unit:'chips',ans:pm.sidePot?pm.elig:pm.potAfter,alt:pm.potAfter,tol:0.5,skill:'pot'},
+              {id:'be',label:'How often do you need to win for calling to break even?',unit:'%',ans:pm.breakEven*100,tol:1.5,skill:'price'}]});
+  }else{
+    const b=R.betSize,be=b/(pm.potNow+b);R.bluffBE=be;
+    Q.push({kind:'potprice',skills:['pot','price'],title:'Count the pot and the price',
+      fields:[{id:'potNow',label:'How big is the pot right now?',unit:'chips',ans:pm.potNow,tol:0.5,skill:'pot'},
+              {id:'be',label:spot==='rfi'?`If you raise to ${R.openTo} (${b} more), how often must everyone fold for a pure steal to break even?`:`If you bet ${b}, how often must he fold for a pure bluff to break even?`,unit:'%',ans:be*100,tol:1.5,skill:'price'}]});
+  }
+  if(R.villain!=null&&R.line&&R.line.length){
+    if(spot==='post-open'){
+      Q.push({kind:'range',mode:'call',skills:['range'],title:'Infer a range',
+        prompt:`${R.vname} has chosen to ${joinPhrases(R.line.map(x=>x.phrase))}. Which of his hands would call a ${R.betSize}-chip bet now? Which of those do you beat?`});
+    }else{
+      const last=R.line[R.line.length-1].phrase;
+      Q.push({kind:'range',mode:'line',skills:['range'],title:'Infer a range',
+        prompt:`Which hands would ${joinPhrases(R.line.map(x=>x.phrase))}?`,lessPrompt:`Which got less likely after he chose to ${last}?`,last});
+    }
+  }
+  const opts=spot==='post-facing'||spot==='pre-facing'?['fold','call'].concat(snap.canRaise?['raise']:[]):spot==='rfi'?['fold','call','raise']:['check','bet'];
+  let est;
+  if(spot==='post-facing')est=snap.street===3?{label:'How often is he bluffing — what share of his bets do you beat?',kind:'q'}:{label:'Your equity against his range',kind:'q'};
+  else if(spot==='pre-facing')est={label:'Your equity against his range',kind:'q'};
+  else if(spot==='post-open')est={label:`How often would he fold to your bet? (If you check, answer for a ${R.betSize}-chip bet.)`,kind:'f'};
+  else est={label:'How often will everyone behind fold to your raise?',kind:'f'};
+  Q.push({kind:'play',skills:['play'],title:'Choose and defend a play',opts,est,
+    prompt:spot==='rfi'?'What do you do? Give a size if you raise, your estimate, and why.':'What do you do? Give a size if you bet or raise, your estimate, and why.'});
+}
+
+/* ---------- grading: pot & price ---------- */
+function gradePotPrice(R,q,vals){
+  const res={fields:{},skills:{}};
+  for(const f of q.fields){const v=parseFloat(vals[f.id]);let ok=!isNaN(v)&&Math.abs(v-f.ans)<=f.tol;let note='';
+    if(!ok&&f.alt!=null&&!isNaN(v)&&Math.abs(v-f.alt)<=f.tol){ok=true;note='That counts every chip in the middle; the part you can win is '+fmt(f.ans)+' because of the side pot.';}
+    if(!ok&&f.id==='be'&&!isNaN(v)){const C=R.pm.toCall||R.betSize,base=R.pm.toCall?R.pm.potNow:R.pm.potNow;const wrong=C/base*100;
+      if(Math.abs(v-wrong)<=f.tol)note=`You divided by the pot before ${R.pm.toCall?'your call':'your bet'} (${fmt(wrong)}%). Break-even divides by the pot after it.`;}
+    res.fields[f.id]={ok,v,ans:f.ans,note};res.skills[f.skill]=(res.skills[f.skill]!==false)&&ok;}
+  return res;
+}
+
+/* ---------- grading: ranges ---------- */
+function rangeTargets(R,mode){
+  const m=R.model,byP={};let target;
+  if(mode==='call'){
+    const cont=continueProbs(R);R.cont=cont;
+    target=new Float64Array(NC);for(let i=0;i<NC;i++)target[i]=m.mix[i]*cont.mix[i];
+    for(const p of PROFILE_IDS){const w=new Float64Array(NC);for(let i=0;i<NC;i++)w[i]=m.byP[p][i]*cont.byP[p][i];byP[p]=w;}
+  }else{target=m.mix;for(const p of PROFILE_IDS)byP[p]=m.byP[p];}
+  return{target,byP};
+}
+function histSim(t,u,blk){ // histogram intersection of class-level combo mass
+  const T=classStats(t,blk),tz=T.total||1;let uz=0;const g=new Float64Array(169);
+  for(let k=0;k<169;k++){g[k]=u[k]*T.avail[k];uz+=g[k];}
+  if(uz<=0)return 0;let s=0;for(let k=0;k<169;k++)s+=Math.min(T.mass[k]/tz,g[k]/uz);return s;
+}
+function gradeRange(R,q,user,down){
+  const{target,byP}=rangeTargets(R,q.mode),blk=R.model.blk,T=classStats(target,blk);
+  const P=classStats(new Float64Array(NC).fill(1),blk);
+  const hyps=[{id:'mix',label:'Best estimate (all player types, weighted by what you saw)',w:target,post:1}];
+  for(const p of PROFILE_IDS)if(R.model.post[p]>=0.1)hyps.push({id:p,label:`If he is a ${PROFILES[p].label.toLowerCase()} (${pct(R.model.post[p],0)} likely)`,w:byP[p],post:R.model.post[p]});
+  for(const h of hyps)h.sim=histSim(h.w,user,blk);
+  const best=hyps.reduce((a,b)=>b.sim>a.sim?b:a);
+  const relP={};for(const p of PROFILE_IDS)relP[p]=classStats(byP[p],blk).rel;
+  const cat={impossible:[],questionable:[],alternative:[],supported:[],missed:[]};
+  for(let k=0;k<169;k++){
+    if(user[k]>0){
+      if(P.avail[k]===0){cat.impossible.push(k);continue;}
+      const mx=Math.max(...PROFILE_IDS.filter(p=>R.model.post[p]>=0.05).map(p=>relP[p][k]));
+      if(T.rel[k]>=0.25)cat.supported.push(k);
+      else if(mx<0.08)cat.questionable.push(k);
+      else{const alt=PROFILE_IDS.find(p=>R.model.post[p]>=0.1&&relP[p][k]>=0.35);if(alt)cat.alternative.push({k,p:alt});else cat.questionable.push(k);}
+    }else if(T.rel[k]>=0.5&&P.avail[k]>0)cat.missed.push(k);
+  }
+  cat.missed.sort((a,b)=>T.mass[b]-T.mass[a]);
+  const out={hyps,best,credit:best.sim,cat,T,avail:P.avail,ok:best.sim>=0.5};
+  // which hands got less likely after the last action
+  if(q.mode==='line'&&R.model.steps.length>=2){
+    const st=R.model.steps,bef=classStats(st[st.length-2].mix,blk),aft=classStats(st[st.length-1].mix,blk);
+    const ratio=new Float64Array(169),bz=bef.total||1,az=aft.total||1;
+    for(let k=0;k<169;k++)ratio[k]=bef.mass[k]>0?(aft.mass[k]/az)/(bef.mass[k]/bz):1;
+    const cand=[];for(let k=0;k<169;k++)if(bef.mass[k]/bz>0.002&&ratio[k]<0.6)cand.push(k);
+    cand.sort((a,b)=>ratio[a]-ratio[b]);out.less=cand;out.ratio=ratio;
+    out.compBefore=composition(st[st.length-2].mix,snapBoardAt(R,st.length-1));out.compAfter=composition(st[st.length-1].mix,snapBoardAt(R,st.length-1));
+    if(down){const marked=[];for(let k=0;k<169;k++)if(down[k])marked.push(k);out.downMarked=marked;out.downHits=marked.filter(k=>cand.includes(k)||ratio[k]<0.8);}
+    // action-by-action support for the hands the user picked
+    out.support=[];const uw=new Float64Array(NC);for(let i=0;i<NC;i++)if(!blk[i])uw[i]=user[CCLS[i]];
+    for(let j=1;j<st.length;j++){const b0=st[j-1].mix,b1=st[j].mix;let su=0,zu=0,sm=0,zm=0;
+      for(let i=0;i<NC;i++){if(!(b0[i]>0))continue;const a=b1[i]/b0[i];if(uw[i]>0){su+=uw[i]*a;zu+=uw[i];}sm+=b0[i]*a;zm+=b0[i];}
+      out.support.push({phrase:R.line[j-1].phrase,keptUser:zu?su/zu:NaN,keptModel:zm?sm/zm:NaN});}
+  }
+  if(q.mode==='call'){ // worse hands that call
+    const eq=R.eq||(R.eq=pairEquities(R.snap.hole,R.snap.board,R.model.mix,hashStr(R.id)).eq);
+    const worse=new Float64Array(169),better=new Float64Array(169);
+    for(let i=0;i<NC;i++){if(!(target[i]>0)||isNaN(eq[i]))continue;if(eq[i]>0.5)worse[CCLS[i]]+=target[i];else better[CCLS[i]]+=target[i];}
+    const tz=T.total||1;out.worse=[...Array(169).keys()].filter(k=>worse[k]/tz>0.004).sort((a,b)=>worse[b]-worse[a]);
+    out.better=[...Array(169).keys()].filter(k=>better[k]/tz>0.004).sort((a,b)=>better[b]-better[a]);
+    out.worseShare=sum(worse)/tz;
+  }
+  return out;
+}
+function snapBoardAt(R,stepIdx){const st=R.model.steps[stepIdx];return st&&st.sit&&st.sit.board?st.sit.board:R.snap.board;}
+
+/* villain's continue probability facing the hero's bet, under each player type */
+function continueProbs(R){
+  const{snap,pm}=R,b=R.betSize,v=R.villain,vs=snap.seats[v];
+  const sit={street:snap.street,board:snap.board.slice(),toCall:Math.min(b,vs.stack),pot:pm.potNow+b,stack:vs.stack,
+    isPFA:snap.raisers.length>0&&snap.raisers[snap.raisers.length-1]===v,nOpp:snap.seats.filter(x=>!x.folded).length-1,raises:1,canRaise:vs.stack>b,canBet:true};
+  const byP={},F=boardFeatures(snap.board);
+  for(const p of PROFILE_IDS){const c=new Float64Array(NC);for(let i=0;i<NC;i++){if(!F.valid[i])continue;const d=postflopDist(PROFILES[p].post,F,i,sit);c[i]=d.call+d.raise;}byP[p]=c;}
+  const mix=new Float64Array(NC),m=R.model;
+  for(let i=0;i<NC;i++){let s=0,z=0;for(const p of PROFILE_IDS){const w=(R.prior[p]||0)*m.byP[p][i];s+=w*byP[p][i];z+=w;}mix[i]=z>0?s/z:0;}
+  return{mix,byP,sit};
+}
+
+/* ---------- analysis: GTO reference + opponent-specific adjustment ---------- */
+function analyze(R){
+  if(R.analysis)return R.analysis;
+  const{snap,spot,pm}=R,A={};R.analysis=A;
+  if(R.villain!=null&&spot!=='rfi'){
+    const pe=pairEquities(snap.hole,snap.board,R.model.mix,hashStr(R.id));R.eq=pe.eq;A.runs=pe.runs;
+    A.eqModel=eqVs(pe.eq,R.model.mix);
+  }
+  if(spot==='post-facing'||spot==='pre-facing'){
+    const C=pm.toCall,E=pm.elig;A.param='q';A.threshold=C/E;
+    A.ev=q=>q*E-C;
+    const river=snap.street===3;A.paramLabel=river?'share of his bets you beat':'your equity vs his range';
+    // evidence: comparable bets this street
+    const o=R.obs,curFrac=(snap.currentBet-0)/Math.max(1,pm.potNow-snap.currentBet+snap.seats[snap.heroSeat].committed);
+    const comp=o?o.betRec.filter(b=>b.street===snap.street&&sizeBucket(b.frac)===sizeBucket(curFrac)):[];
+    A.evidence={n:comp.length,sd:comp.filter(b=>b.shown).length,bluffs:comp.filter(b=>b.kind==='bluff'||(snap.street<3&&b.kind==='semi-bluff')).length,
+      all:o?o.betRec.filter(b=>b.street===snap.street).length:0,list:comp,street:STREETS[snap.street],size:sizeBucket(curFrac)};
+    if(snap.street===0&&o)A.evidence={pre:true,hands:o.hands,vpip:o.vpip,pfr:o.pfr};
+    const q0=A.eqModel,n0=4;
+    if(river){const ev=A.evidence,a=n0*q0+ev.bluffs,b=n0*(1-q0)+(ev.sd-ev.bluffs);A.belief=betaInterval(Math.max(0.05,a),Math.max(0.05,b));A.beliefSource=`Model prior ${pct(q0,0)} (weight of ${n0} showdowns) updated with ${ev.sd} comparable showdown${ev.sd===1?'':'s'}, ${ev.bluffs} of them bluffs.`;}
+    else{A.belief={mean:q0,lo:Math.max(0,q0-0.08),hi:Math.min(1,q0+0.08)};A.beliefSource=`Equity of your hand against the model range (${A.runs} sampled run-outs per hand; ±8 points for sampling and model error).`;}
+    A.best=A.ev(A.belief.mean)>0?'call':'fold';
+    A.tie=Math.abs(A.ev(A.belief.mean))<0.01*E;
+    // value / bluff-candidate split at the start of this street (river only)
+    if(river&&R.model.steps.length>=2){const st=R.model.steps;let j=st.length-1;while(j>0&&st[j].entry&&st[j].entry.street===3)j--;
+      const before=st[j].mix,after=R.model.mix;let V=0,B=0,Vb=0,Bb=0;
+      for(let i=0;i<NC;i++){const e=R.eq[i];if(!(before[i]>0)||isNaN(e))continue;const beat=e;V+=before[i]*(1-beat);B+=before[i]*beat;Vb+=after[i]*(1-beat);Bb+=after[i]*beat;}
+      const z=V+B;A.split={valueShare:V/z,betValue:V>0?Vb/V:0,betBluff:B>0?Bb/B:0};}
+  }else if(spot==='post-open'){
+    Object.assign(A,openSpot(R,R.betSize));
+    }else{ // rfi
+    const P=pm.potNow,b=R.betSize;A.param='f';A.threshold=b/(P+b);
+    let f=1;const me=snap.heroSeat,behind=[];const order=PRE_ORDER;const myIdx=order.indexOf(snap.seats[me].pos);
+    for(const s of snap.seats.map((x,i)=>i)){if(s===me||snap.seats[s].folded)continue;if(order.indexOf(snap.seats[s].pos)>myIdx)behind.push(s);}
+    const prev=[];A.behind=[];
+    for(const s of behind){const name=R.rec.players[s].name,pr=profilePrior(name,R.prev||[]);const sit={street:0,role:'vsOpen',pos:snap.seats[s].pos,openerPos:snap.seats[me].pos,toCall:R.openTo-snap.seats[s].committed,canRaise:true};
+      let fold=0,z=0;const blk=blockedMask(snap.hole);for(const p of PROFILE_IDS){let fp=0,zp=0;for(let i=0;i<NC;i++){if(blk[i])continue;fp+=preflopDist(PROFILES[p],CCLS[i],sit).fold;zp++;}fold+=pr[p]*fp/zp;z+=pr[p];}
+      A.behind.push({name,pos:snap.seats[s].pos,fold:fold/z});f*=fold/z;}
+    A.f0=f;A.belief={mean:f,lo:Math.max(0,f-0.12),hi:Math.min(1,f+0.12)};A.beliefSource='Each player behind folding, averaged over the four player types, multiplied together (treats them as independent).';
+    A.ev=x=>x*P-(1-x)*b;A.paramLabel='how often everyone folds';A.flip=A.threshold;
+    const k=classOfCards(snap.hole[0],snap.hole[1]),w=PROFILES.tag.open[snap.seats[me].pos]?PROFILES.tag.open[snap.seats[me].pos][k]:0;
+    A.chart=w;A.best=A.ev(A.belief.mean)>0?'raise':(w>=0.5?'raise':'fold');A.tie=false;
+  }
+  if(A.flip==null)A.flip=A.threshold;
+  A.gto=riverGTO(R);
+  return A;
+}
+function openSpot(R,b){
+  const{snap,pm}=R,P=pm.potNow,A={param:'f',threshold:b/(P+b),b};
+  const saved=R.betSize;R.betSize=b;const cont=continueProbs(R);R.betSize=saved;if(b===R.betSize)R.cont=cont;
+  const order=[];for(let i=0;i<NC;i++)if(R.model.mix[i]>0&&!isNaN(R.eq[i]))order.push(i);
+  order.sort((x,y)=>cont.mix[y]-cont.mix[x]);
+  let z=0;for(const i of order)z+=R.model.mix[i];
+  let f0=0;for(const i of order)f0+=R.model.mix[i]*(1-cont.mix[i]);f0/=z||1;A.f0=f0;
+  const eqAll=eqVs(R.eq,R.model.mix);
+  const eqc=f=>{let need=(1-f)*z,s=0,w=0;for(const i of order){if(need<=0)break;const t=Math.min(need,R.model.mix[i]);s+=t*R.eq[i];w+=t;need-=t;}return w>0?s/w:eqAll;};
+  A.eqc=eqc;A.evBet=f=>f*P+(1-f)*(eqc(f)*(P+2*b)-b);A.evCheck=()=>eqAll*P;
+  A.ev=f=>A.evBet(f)-A.evCheck();A.paramLabel='how often he folds';
+  const o=R.obs,comp=o?o.facedRec.filter(x=>x.street===snap.street):[];
+  A.evidence={n:comp.length,folds:comp.filter(x=>x.resp==='fold').length,street:STREETS[snap.street]};
+  const n0=4,a=n0*f0+A.evidence.folds,bb=n0*(1-f0)+(A.evidence.n-A.evidence.folds);A.belief=betaInterval(Math.max(0.05,a),Math.max(0.05,bb));
+  A.beliefSource=`Model prior ${pct(f0,0)} (weight of ${n0} observations) updated with ${A.evidence.n} times you saw him face a ${A.evidence.street} bet (${A.evidence.folds} folds).`;
+  A.flip=findFlip(A.ev);A.best=A.ev(A.belief.mean)>0?'bet':'check';A.tie=Math.abs(A.ev(A.belief.mean))<0.01*P;
+  return A;
+}
+function findFlip(fn){let prev=fn(0);for(let k=1;k<=200;k++){const x=k/200,v=fn(x);if((v>0)!==(prev>0)){let lo=(k-1)/200,hi=x;for(let t=0;t<30;t++){const m=(lo+hi)/2;if((fn(m)>0)===(prev>0))lo=m;else hi=m;}return(lo+hi)/2;}prev=v;}return null;}
+
+/* ---------- GTO reference: heads-up river, restricted tree ---------- */
+function riverGTO(R){
+  const{snap,rec,pm}=R,me=snap.heroSeat,v=R.villain;
+  const no=why=>({available:false,why});
+  if(snap.street!==3)return no('The reference library covers heads-up river spots only.');
+  if(!R.heads||v==null)return no('Multiway pots are not covered.');
+  if(snap.raisesStreet>1)return no('A raise on the river is outside the restricted tree (no raises).');
+  const facing=snap.toCall>0;
+  const oop=firstPostflopActor(snap.button,me,v),heroOOP=oop===me;
+  const node=facing?(heroOOP?'vsBetAfterCheck':'vsBet'):(heroOOP?'root':'afterCheck');
+  const hv=snap.seats[me],vv=snap.seats[v];
+  const P=pm.potNow-snap.seats.reduce((a,x)=>a+x.committed,0);
+  const eff=Math.min(hv.stack+hv.committed,vv.stack+vv.committed);
+  let b=facing?vv.committed:(R.heroAction==='bet'&&R.heroBet?R.heroBet:Math.round(0.75*P));
+  b=Math.max(1,Math.min(b,eff));
+  if(eff<=0)return no('No chips left to bet on the river.');
+  const riverStart=rec.log.findIndex(e=>e.type==='deal'&&e.street===3)+1;
+  const board=snap.board;
+  const vm=rangeModel(rec,v,riverStart,board,R.prior);
+  const hm=rangeModel(rec,me,riverStart,board,{tag:1},['tag']);
+  const prune=(w,keep)=>{const idx=[];for(let i=0;i<NC;i++)if(w[i]>0)idx.push(i);idx.sort((a,b)=>w[b]-w[a]);const tot=idx.reduce((a,i)=>a+w[i],0);
+    const out=[];let acc=0;for(const i of idx){if(out.length>=160||acc>=0.995*tot)break;out.push(i);acc+=w[i];}
+    if(keep!=null&&!out.includes(keep)){out.push(keep);}const mx=w[out[0]]||1;
+    return out.map(i=>({i,w:i===keep?Math.max(w[i],0.002*mx):w[i]}));};
+  const vr=prune(vm.mix,null),hr=prune(hm.mix,R.heroCombo);
+  const side=x=>({w:x.map(o=>o.w),cards:x.map(o=>[CA[o.i],CB[o.i]]),score:x.map(o=>evalHand([CA[o.i],CB[o.i],...board])),idx:x.map(o=>o.i)});
+  const H=side(hr),V=side(vr);
+  const spec={P,b,iters:500,oopCanBet:true,ipCanBet:true,oop:heroOOP?H:V,ip:heroOOP?V:H};
+  const t0=Date.now(),sol=solveRiver(spec),ms=Date.now()-t0;
+  const hi=H.idx.indexOf(R.heroCombo),sd=heroOOP?'oop':'ip';
+  const nd=node==='root'?'root':node==='vsBetAfterCheck'?'vsBet':node;
+  const ev=nodeEVs(sol,sd,hi,nd);
+  let freq;
+  if(node==='root')freq={bet:sol.oop.bet[hi],check:1-sol.oop.bet[hi]};
+  else if(node==='vsBetAfterCheck')freq={call:sol.oop.call[hi],fold:1-sol.oop.call[hi]};
+  else if(node==='vsBet')freq={call:sol.ip.call[hi],fold:1-sol.ip.call[hi]};
+  else freq={bet:sol.ip.bet[hi],check:1-sol.ip.bet[hi]};
+  const acts=Object.keys(freq);let credit=[];
+  if(ev){const bestEV=Math.max(...acts.map(x=>ev[x]));credit=acts.filter(x=>freq[x]>=0.2||bestEV-ev[x]<=0.01*P);}else credit=acts.filter(x=>freq[x]>=0.2);
+  // villain's equilibrium frequencies at this node, for the bluff-share comparison
+  let eqBluffShare=null;
+  if(facing){const vs=heroOOP?'ip':'oop';const vw=V.w,betp=heroOOP?sol.ip.bet:sol.oop.bet;let bz=0,bb=0;
+    const hs=evalHand([...snap.hole,...board]);
+    for(let j=0;j<vw.length;j++){const c=V.cards[j];if(c.includes(snap.hole[0])||c.includes(snap.hole[1]))continue;const m=vw[j]*betp[j];bz+=m;if(V.score[j]<hs)bb+=m;else if(V.score[j]===hs)bb+=m/2;}
+    eqBluffShare=bz>0?bb/bz:null;}
+  return{available:true,node,heroOOP,P,b,eff,freq,ev,credit,iters:sol.iters,explPct:sol.explPct,ms,nH:H.w.length,nV:V.w.length,
+    widthV:vr.length,widthH:hr.length,eqBluffShare,
+    source:`Restricted heads-up river game solved in this app with CFR+ (${sol.iters} iterations, exploitability ${(sol.explPct*100).toFixed(2)}% of the pot). `+
+      `Positions: you ${heroOOP?'out of position':'in position'} (${snap.seats[me].pos}) vs ${R.vname} (${snap.seats[v].pos}). Pot at the start of the river ${fmt(P)}, effective stack ${fmt(eff)}, rake 0. `+
+      `Actions: check or bet ${fmt(b)}; facing a bet: call or fold; no raises. Starting ranges: his = public player-type mixture after his preflop–turn actions (${V.w.length} combos kept); yours = the solid-regular model of your own actions (${H.w.length} combos).`};
+}
+
+/* ---------- grading: the play ---------- */
+function gradePlay(R,ans){
+  const A=analyze(R),out={};const act=ans.action;
+  const est=isNaN(parseFloat(ans.estimate))?null:parseFloat(ans.estimate)/100;out.est=est;
+  const cont=act==='call'||act==='raise';const evOf=x=>A.ev(x);
+  if(A.param==='q'){
+    const mine=est!=null?evOf(est):null;out.mineEV=mine;out.consistent=est==null?null:((mine>0)===cont||Math.abs(mine)<0.01*R.pm.elig);
+    out.half=est!=null?{x:est/2,ev:evOf(est/2)}:null;
+  }else{
+    const mine=est!=null?evOf(est):null;out.mineEV=mine;const aggressive=act==='bet'||act==='raise';out.consistent=est==null?null:((mine>0)===aggressive||Math.abs(mine)<0.01*R.pm.potNow);
+    out.half=est!=null?{x:est/2,ev:evOf(est/2)}:null;
+  }
+  if(R.spot==='post-open'&&act==='bet'&&+ans.size>0&&Math.round(+ans.size)!==R.betSize&&R.model){
+    const b=Math.min(Math.round(+ans.size),R.snap.maxTo),S2=openSpot(R,b),f=est!=null?est:S2.belief.mean,ev=S2.ev(f);
+    out.atSize={b,ev,text:`with ${pct(f,0)} folds, betting ${b} is worth ${sgn2(ev)} chips vs checking; a pure bluff of this size needs ${pct(S2.threshold,1)} folds.`};
+    out.consistent=est==null?null:((ev>0)||Math.abs(ev)<0.01*R.pm.potNow);out.mineEV=ev;}
+  const adjAct=A.best,norm=a=>a==='raise'&&A.param==='q'?'call':a;
+  out.adjOK=norm(act)===adjAct||A.tie;
+  out.gtoOK=A.gto.available?A.gto.credit.map(norm).includes(norm(act)):null;
+  out.ok=out.adjOK||out.gtoOK===true;
+  out.rubric=rubric(ans.reason,'play');
+  return out;
+}
+
+const sgn2=x=>(x>=0?'+':'−')+fmt(Math.abs(x));
+/* ---------- takeaway: one line to use at the table ---------- */
+function takeaway(R){
+  const A=analyze(R),res=R.results,pm=R.pm;
+  if(res.potprice&&res.potprice.skills.price===false){
+    return pm.toCall?`Break-even = call ÷ pot after your call: ${pm.toCall} ÷ ${fmt(pm.elig)} = ${pct(pm.breakEven)}. Facing a ¾-pot bet that is always 30%.`:`A pure bluff needs folds = bet ÷ (pot + bet): ${R.betSize} ÷ ${fmt(pm.potNow+R.betSize)} = ${pct(R.bluffBE)}.`;}
+  if(res.range&&!res.range.ok&&res.range.compAfter){const ca=res.range.compAfter,cb=res.range.compBefore,lab=R.snap.board.length?POST_BUCKETS:PRE_BUCKETS;
+    let k=0,d=0;for(let i=0;i<ca.length;i++){const dd=Math.abs(ca[i]-cb[i]);if(dd>d){d=dd;k=i;}}
+    return`When he chose to ${R.questions.find(q=>q.kind==='range').last}, “${lab[k].toLowerCase()}” went from ${pct(cb[k],0)} to ${pct(ca[k],0)} of his range. Shift your read that way next time.`;}
+  if(A.param==='q'&&R.snap.street===3){const ev=A.evidence;
+    const shown=ev.sd===0?`You hadn't seen any of ${R.vname}'s comparable river bets reach showdown`:`You'd seen only ${ev.sd} of ${R.vname}'s comparable river bets reach showdown`;
+    return ev.sd<3?`${shown}, so the read rests on his line and the price. You need ${pct(A.threshold,0)} of these bets to be hands you beat; the range model puts it near ${pct(A.belief.mean,0)}, so ${A.best}${Math.abs(A.belief.mean-A.threshold)<0.1?' — but it is close enough that a small read can flip it':''}.`
+      :`${R.vname} has shown ${ev.bluffs} bluff${ev.bluffs===1?'':'s'} in ${ev.sd} comparable river showdowns. Against a ${pct(A.threshold,0)} price, that ${A.belief.mean>A.threshold?'supports calling':'supports folding'} your bluff-catchers.`;}
+  if(A.param==='q')return`You need ${pct(A.threshold,0)} equity; the model range gives you about ${pct(A.eqModel,0)}. ${R.snap.street<3?'With streets to come, discount draws that face more bets and add for hands that win big when they hit.':''}`.trim();
+  if(A.param==='f'&&R.spot==='post-open'){const valueish=A.flip!=null&&A.ev(Math.max(0,A.flip-0.05))>0;
+    return valueish?`This hand bets for value: a ${R.betSize}-chip bet only pays if ${R.vname} calls with worse often enough (folds under ${pct(A.flip,0)}). Name the worse hands that call before you bet.`
+      :`A ${R.betSize}-chip bluff needs ${pct(A.threshold,0)} folds; ${R.vname} has folded ${A.evidence.folds} of ${A.evidence.n} ${A.evidence.street} bets you've seen. Bluff when your evidence clears that bar.`;}
+  return`Opening for ${R.betSize} more into ${fmt(pm.potNow)} needs ${pct(A.threshold,0)} folds to profit on the steal alone. The rest of the value comes from your hand when you get called.`;
+}
+
+/* ---------- drills: same skill, new amounts or new cards ---------- */
+function makeDrill(item,records){
+  const rec=records.find(r=>r.hand===item.hand);
+  const rnd=mulberry32(hashStr(item.id+':'+(item.history?item.history.length:0)+':'+Date.now()));
+  const pick=a=>a[Math.floor(rnd()*a.length)];
+  if((item.skill==='pot'||item.skill==='price')&&rec){
+    const snap=rec.snaps[item.k];const lines=[],com=new Array(6).fill(0),tot=new Array(6).fill(0);let cb=0,street=0,nRaise=0;const me=snap.heroSeat;
+    const name=s=>s===me?'You':rec.players[s].name+' ('+rec.players[s].pos+')';
+    for(let k=0;k<snap.logLen;k++){const e=rec.log[k];
+      if(e.type==='deal'){street=e.street;com.fill(0);cb=0;nRaise=0;lines.push({street:STREETS[street],text:`${STREETS[street][0].toUpperCase()+STREETS[street].slice(1)}: ${e.cards.slice(street===1?0:e.cards.length-1).map(c=>(RANKS[c>>2]==='T'?'10':RANKS[c>>2])+({c:'♣',d:'♦',h:'♥',s:'♠'})[SUITS[c&3]]).join(' ')}`,deal:true});continue;}
+      const s=e.seat,pot=tot.reduce((a,b)=>a+b,0);let a=0,txt='';const vb=(w,t)=>s===me?w:t||w+'s';
+      if(e.type==='sb'||e.type==='bb'){a=e.amount;txt=`${name(s)} ${vb('post')} ${a}`;cb=Math.max(cb,com[s]+a);}
+      else if(e.type==='fold'){txt=`${name(s)} ${vb('fold')}`;}
+      else if(e.type==='check'){txt=`${name(s)} ${vb('check')}`;}
+      else if(e.type==='call'){a=Math.max(0,cb-com[s]);txt=`${name(s)} ${vb('call')} ${a}`;}
+      else{let to;if(street===0){to=nRaise===0?pick([4,5,6,7]):Math.round(cb*pick([3,3.5,4]));}else if(cb===0){to=Math.max(2,Math.round(pot*pick([0.33,0.5,0.66,0.75,1,1.25])));}else to=Math.round(cb*pick([2.5,3,3.5]));
+        a=to-com[s];txt=`${name(s)} ${cb===0&&street>0?vb('bet'):vb('raise')+' to'} ${cb===0&&street>0?a:to}`;cb=to;nRaise++;}
+      com[s]+=a;tot[s]+=a;lines.push({text:txt});}
+    const potNow=tot.reduce((a,b)=>a+b,0),toCall=Math.max(0,cb-com[me]);
+    const fields=toCall>0?[{id:'call',label:'How many more chips do you need to call?',ans:toCall,tol:0.5,unit:'chips',skill:'pot'},{id:'potAfter',label:'How big is the pot after your call?',ans:potNow+toCall,tol:0.5,unit:'chips',skill:'pot'},{id:'be',label:'Break-even: how often must you win?',ans:toCall/(potNow+toCall)*100,tol:1.5,unit:'%',skill:'price'}]
+      :(()=>{const b=Math.max(2,Math.round(potNow*pick([0.33,0.5,0.75,1])));return[{id:'potNow',label:'How big is the pot right now?',ans:potNow,tol:0.5,unit:'chips',skill:'pot'},{id:'be',label:`If you bet ${b}, how often must he fold for a pure bluff to break even?`,ans:b/(potNow+b)*100,tol:1.5,unit:'%',skill:'price'}];})();
+    return{kind:'potprice',skill:item.skill,lines,fields:fields.filter(f=>item.skill==='pot'?true:true),title:'Same spot, new amounts',hole:snap.hole};
+  }
+  if(item.skill==='range'&&rec&&item.villain!=null){
+    const snap=rec.snaps[item.k];
+    for(let tries=0;tries<20;tries++){
+      const deck=[];for(let c=0;c<52;c++)deck.push(c);for(let i=51;i>0;i--){const j=Math.floor(rnd()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]];}
+      const hole=[deck.pop(),deck.pop()],full=[deck.pop(),deck.pop(),deck.pop(),deck.pop(),deck.pop()];
+      const board=full.slice(0,snap.board.length);
+      const r2={...rec,dec:rec.dec.map(d=>d.street>0?{...d,sit:{...d.sit,board:full.slice(0,d.street+2)}}:d)};
+      const prior=profilePrior(rec.players[item.villain].name,records.filter(r=>r.hand<rec.hand));
+      const model=rangeModel(r2,item.villain,snap.logLen,hole.concat(board),prior);
+      if(sum(model.mix)<=0)continue;
+      const fake={rec:r2,snap:{...snap,hole,board},model,prior,line:villainLine(r2,item.villain,snap.logLen),vname:rec.players[item.villain].name,id:item.id+'d'};
+      const last=fake.line.length?fake.line[fake.line.length-1].phrase:'act';
+      const q={kind:'range',mode:'line',prompt:`New cards, same betting: which hands would ${joinPhrases(fake.line.map(x=>x.phrase))}?`,lessPrompt:`Which got less likely after he chose to ${last}?`,last};
+      return{kind:'range',skill:'range',R:fake,q,hole,board,title:'Similar betting, different cards'};
+    }
+  }
+  // play: river bluff-catch with new numbers (always available)
+  const P=pick([60,80,100,120,150,200,240]),f=pick([0.33,0.5,0.75,1,1.5]),b=Math.round(P*f);
+  const V=pick([0.4,0.5,0.6,0.7]),beta=pick([0.1,0.25,0.4,0.5,0.6,0.8]);
+  const share=beta*(1-V)/(V+beta*(1-V));const viaBeta=rnd()<0.6;
+  const ev=share*(P+b)-(1-share)*b;
+  return{kind:'play',skill:'play',P,b,V,beta,share,viaBeta,ev,title:'River bluff-catch, new numbers',
+    text:viaBeta?`Heads-up river. Pot ${P}. He bets ${b}. You hold a pure bluff-catcher: it beats all his bluffs and loses to all his value hands, no ties. He arrives with ${pct(V,0)} value hands and ${pct(1-V,0)} bluff candidates. He bets every value hand and ${pct(beta,0)} of his bluff candidates.`
+      :`Heads-up river. Pot ${P}. He bets ${b}. You hold a pure bluff-catcher. From what you have seen, ${pct(share,0)} of his bets here are bluffs.`};
+}
+function gradeDrillPlay(d,ans){
+  const act=ans.action,ev=parseFloat(ans.ev);const best=Math.abs(d.ev)<1?'either':d.ev>0?'call':'fold';
+  const actOK=best==='either'||act===best,evOK=!isNaN(ev)&&Math.abs(ev-d.ev)<=Math.max(2,Math.abs(d.ev)*0.05);
+  return{actOK,evOK,ok:actOK&&evOK,best,ev:d.ev,share:d.share,be:d.b/(d.P+2*d.b)};
+}
+
+/* ================= app.js — table UI, review flow, persistence ================= */
+{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SYM={c:'♣',d:'♦',h:'♥',s:'♠'};
+const cardHTML=(c,cls='')=>c==null?`<span class="card back ${cls}"></span>`:`<span class="card s-${SUITS[c&3]} ${cls}" aria-label="${RANKS[c>>2]}${SUITS[c&3]}"><b>${RANKS[c>>2]==='T'?'10':RANKS[c>>2]}</b><i>${SYM[SUITS[c&3]]}</i></span>`;
+const cardsXS=cs=>cs.map(c=>cardHTML(c,'xs')).join('');
+const cardTxt=c=>(RANKS[c>>2]==='T'?'10':RANKS[c>>2])+SYM[SUITS[c&3]];
+const cap=name=>(window.claude&&typeof window.claude.use==='function')?Promise.resolve(window.claude.use(name)).catch(()=>null):Promise.resolve(null);
+const NAMES=['Marisol','Dex','Okafor','Lin','Petra','Ravi','Juno','Sten','Ines','Callum','Wren','Taro','Bea','Nikos'];
+const SLOT=[[50,86],[11,64],[14,17],[50,5],[86,17],[89,64]];
+
+/* ---------- persisted state ---------- */
+const S={v:1,tableId:null,players:[],button:0,handNo:0,settings:{interval:2,speed:'normal'},
+  skills:{pot:{att:0,miss:0,recent:[]},price:{att:0,miss:0,recent:[]},range:{att:0,miss:0,recent:[]},play:{att:0,miss:0,recent:[]}},
+  queue:[],deferred:[],blockStart:0,reviews:0,pending:null,savedAt:0,journal:[]};
+let HANDS=[];let G=null;
+const UI={mode:'idle',tab:'hand',snap:null,timer:null,banner:null,review:null,flagNext:false,betTo:0,drills:null,toastT:null};
+const tableHands=()=>HANDS.filter(h=>h.tableId===S.tableId);
+
+/* ---------- storage: db (per person, private) with localStorage fallback ---------- */
+const LS='rewind-poker-v1';let DB=null,UID=null,BOOTED=false,IDB_OK=false;const chains={};
+/* IndexedDB keeps every hand in this browser; localStorage keeps the small state plus recent hands as a fallback */
+const IDB={p:null,open(){if(this.p)return this.p;this.p=new Promise(res=>{let done=false;const fin=v=>{if(!done){done=true;res(v);}};setTimeout(()=>fin(null),2500);
+    try{const rq=indexedDB.open('rewind-poker',1);rq.onupgradeneeded=()=>{rq.result.createObjectStore('hands',{keyPath:'id'});};rq.onsuccess=()=>{IDB_OK=true;fin(rq.result);};rq.onerror=()=>fin(null);rq.onblocked=()=>fin(null);}catch(e){fin(null);}});return this.p;},
+  async put(rec){const db=await this.open();if(!db)return;try{db.transaction('hands','readwrite').objectStore('hands').put({...rec,id:rec.tableId+':'+rec.hand});}catch(e){}},
+  async all(){const db=await this.open();if(!db)return[];return new Promise(res=>{try{const rq=db.transaction('hands').objectStore('hands').getAll();rq.onsuccess=()=>res(rq.result||[]);rq.onerror=()=>res([]);}catch(e){res([]);}});},
+  async clear(){const db=await this.open();if(!db)return;return new Promise(res=>{try{const rq=db.transaction('hands','readwrite').objectStore('hands').clear();rq.onsuccess=()=>res();rq.onerror=()=>res();}catch(e){res();}});}};
+function mergeHands(list){const seen=new Set(HANDS.map(h=>h.tableId+':'+h.hand));let n=0;for(const h of list){if(!h||!h.log)continue;const key=h.tableId+':'+h.hand;if(!seen.has(key)){seen.add(key);HANDS.push(h);n++;}}if(n)HANDS.sort((a,b)=>(a.at||0)-(b.at||0));if(HANDS.length>1500)HANDS=HANDS.slice(-1500);return n;}
+function lsSave(){try{localStorage.setItem(LS,JSON.stringify({S,H:HANDS.slice(IDB_OK?-30:-80)}));}catch(e){try{localStorage.setItem(LS,JSON.stringify({S,H:[]}));}catch(e2){}}}
+function lsLoad(){try{const x=JSON.parse(localStorage.getItem(LS)||'null');return x;}catch(e){return null;}}
+function dbWrite(key,data){if(!DB||!UID)return;const ref=DB.collection('data/users/'+UID).doc(key);
+  chains[key]=(chains[key]||Promise.resolve()).then(()=>ref.set(JSON.parse(JSON.stringify(data)))).catch(()=>{});}
+let saveT=null;
+function save(){S.savedAt=Date.now();lsSave();clearTimeout(saveT);saveT=setTimeout(()=>dbWrite('state',{kind:'state',S}),400);}
+function saveHand(rec){lsSave();IDB.put(rec);dbWrite('h_'+rec.tableId+'_'+rec.hand,{kind:'hand',tableId:rec.tableId,hand:rec.hand,rec});}
+async function initStore(){
+  const db=await cap('db'),user=await cap('user');
+  if(!db||!user)return false;
+  try{const id=await user.id();if(!id)return false;DB=db;UID=id;}catch(e){return false;}
+  try{
+    const st=await DB.collection('data/users/'+UID).doc('state').get();
+    if(st.exists){const d=st.data();if(!BOOTED&&d&&d.S&&(d.S.savedAt||0)>=(S.savedAt||0)){Object.assign(S,JSON.parse(JSON.stringify(d.S)));}
+      const q=await DB.collection('data/users/'+UID).where('kind','==','hand').get();
+      mergeHands(q.docs.map(x=>x.data().rec).filter(Boolean));}
+    else if(S.tableId){dbWrite('state',{kind:'state',S});HANDS.forEach(saveHand);}
+  }catch(e){}
+  return true;
+}
+
+/* ---------- table setup ---------- */
+function newTable(){
+  const rnd=mulberry32((Date.now()^0x9e3779b9)>>>0),names=NAMES.slice();
+  for(let i=names.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[names[i],names[j]]=[names[j],names[i]];}
+  const pool=['tag','nit','lag','station',['tag','lag','nit','station'][Math.floor(rnd()*4)]];
+  for(let i=pool.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}
+  S.tableId=Date.now().toString(36);S.players=[{name:'You',isHero:true,stack:START_STACK}];
+  for(let i=0;i<5;i++)S.players.push({name:names[i],type:pool[i],seed:Math.floor(rnd()*2**31),stack:START_STACK});
+  S.button=Math.floor(rnd()*6);S.handNo=0;S.blockStart=0;S.pending=null;S.deferred=S.deferred.filter(d=>d.tableId!==S.tableId);
+  G=null;save();
+}
+function hydrate(){
+  const ps=S.players.map(p=>({name:p.name,isHero:!!p.isHero,stack:p.stack,model:p.isHero?PROFILES.tag:makeBotModel(p.type,mulberry32(p.seed))}));
+  G=new Game(ps,S.button);G.handNo=S.handNo;
+}
+
+/* ---------- play loop ---------- */
+const delay=()=>{const fast=S.settings.speed==='fast',heroOut=G&&G.s[0]&&(G.s[0].folded||G.s[0].allIn);return heroOut?(fast?120:260):(fast?280:700);};
+function clearTimer(){clearTimeout(UI.timer);UI.timer=null;}
+function dealHand(){
+  clearTimer();try{if(navigator.storage&&navigator.storage.persist&&!UI.askedPersist){UI.askedPersist=true;navigator.storage.persist().catch(()=>{});}}catch(e){}if(!G)hydrate();UI.banner=null;UI.mode='play';UI.review=null;UI.drills=null;
+  G.startHand();if(G.refills.includes('You'))toast('You were refilled to 200 chips.');
+  render();step();
+}
+function step(){
+  clearTimer();
+  if(G.over)return handOver();
+  const s=G.actor;
+  if(G.s[s].isHero){UI.snap=G.heroSnapshot(s);if(UI.flagNext){UI.snap.flagged=true;UI.flagNext=false;}G.heroDecisions.push(UI.snap);UI.betTo=defaultBet();render();return;}
+  UI.snap=null;render();
+  UI.timer=setTimeout(()=>{const a=G.botDecide(s);G.act(s,a.type,a.to);step();},delay());
+}
+function heroAct(type,to){
+  if(!UI.snap||G.over)return;const snap=UI.snap,n0=G.log.length;
+  G.act(G.actor,type,to);const e=G.log[n0];snap.action={type:e.type,to:e.to,amount:e.amount};UI.snap=null;step();
+}
+function defaultBet(){
+  const L=G.legal(G.actor),pot=G.pot;let to;
+  if(G.street===0)to=G.raisers.length===0?(G.pos(G.actor)==='SB'?6:5):G.currentBet*3;
+  else to=G.currentBet===0?Math.round(pot*0.66):G.currentBet*3;
+  return Math.max(L.minTo,Math.min(L.maxTo,to));
+}
+function handOver(){
+  const rec=makeRecord(G,0);rec.tableId=S.tableId;
+  for(let s=1;s<6;s++){const ll=handLL(rec,s);if(ll)rec.ll[rec.players[s].name]=ll;}
+  HANDS.push(rec);if(HANDS.length>1500)HANDS=HANDS.slice(-1500);
+  S.players.forEach((p,i)=>p.stack=G.players[i].stack);S.button=G.button;S.handNo=G.handNo;
+  saveHand(rec);save();
+  UI.banner=resultText(rec);UI.mode='between';render();
+  const block=tableHands().filter(r=>r.hand>S.blockStart);
+  if(block.length>=S.settings.interval){
+    const pick=pickDecision(block);
+    if(pick){UI.timer=setTimeout(()=>startReview(pick.rec,pick.k,true),1800);UI.nextLabel='Coach is ready';}
+    else{UI.nextLabel='Nothing worth reviewing yet — dealing on';UI.timer=setTimeout(dealHand,2200);}
+  }else{UI.nextLabel=`Next hand (${S.settings.interval-block.length} before review)`;UI.timer=setTimeout(dealHand,2400);}
+  render();
+}
+function pickDecision(block){
+  let best=null;
+  for(const rec of block)rec.snaps.forEach((snap,k)=>{const sc=interest(rec,snap);if(!best||sc>=best.score)best={rec,k,score:sc};});
+  return best&&best.score>=WORTH?best:null;
+}
+function resultText(rec){
+  const P=rec.players,w=rec.result.pots;const name=s=>s===0?'You':P[s].name;
+  const parts=w.map(p=>{const ws=p.winners.map(name).join(' and ');const sh=rec.shown[p.winners[0]];
+    return`${ws} ${p.winners.length>1?'split':(p.winners[0]===0?'win':'wins')} ${p.amount}${rec.result.type==='showdown'&&sh?' with '+describeHand(sh.concat(rec.board)).toLowerCase():''}`;});
+  const net=rec.result.net[0];
+  return{main:parts.join(' · '),sub:`Hand #${rec.hand}: you ${net>0?'won':net<0?'lost':'broke even'}${net?' '+Math.abs(net):''}`};
+}
+
+/* ---------- logging text ---------- */
+function verb(who,base,third){return who==='You'?base:third||base+'s';}
+function logLine(e,players,hero=0){
+  if(e.type==='deal')return null;const who=e.seat===hero?'You':players[e.seat].name;
+  switch(e.type){case'sb':return`${who} post${who==='You'?'':'s'} the small blind`;case'bb':return`${who} post${who==='You'?'':'s'} the big blind`;
+    case'fold':return`${who} ${verb(who,'fold')}`;case'check':return`${who} ${verb(who,'check')}`;
+    case'call':return`${who} ${verb(who,'call')}${e.allIn?' (all-in)':''}`;
+    case'bet':return`${who} ${verb(who,'bet')}${e.allIn?' all-in':''}`;
+    case'raise':return`${who} ${verb(who,'raise')} to ${e.to}${e.allIn?' (all-in)':''}`;}
+  return'';
+}
+function logHTML(log,players,upto,hero=0,cls='loglist'){
+  let h='';const n=upto==null?log.length:upto;
+  for(let k=0;k<n;k++){const e=log[k];
+    if(e.type==='deal'){h+=`<li class="st">${STREETS[e.street][0].toUpperCase()+STREETS[e.street].slice(1)} ${cardsXS(e.street===1?e.cards:e.cards.slice(-1))}</li>`;continue;}
+    const amt=e.type==='raise'?'':e.amount?e.amount:'';
+    h+=`<li class="${e.seat===hero?'me':''}"><span>${esc(logLine(e,players,hero))}</span><span class="amt">${amt}</span></li>`;}
+  return`<ul class="${cls}">${h}</ul>`;
+}
+
+/* ---------- rendering: table ---------- */
+function lastActs(log,upto,street){const m={};for(let k=0;k<upto;k++){const e=log[k];if(e.seat<0)continue;if(e.street===street||e.type==='fold')m[e.seat]=e;}return m;}
+function actLabel(e){if(!e)return'';if(e.type==='fold')return'Fold';if(e.type==='check')return'Check';if(e.type==='call')return e.allIn?'All-in':'Call';
+  if(e.type==='bet')return e.allIn?'All-in':'Bet';if(e.type==='raise')return e.allIn?'All-in':'Raise';return'';}
+function viewFromGame(){
+  if(!G||!G.s){const ps=S.players;return{seats:ps.map((p,i)=>({name:p.name,pos:G?G.pos(i):'',stack:p.stack,committed:0,folded:false,cards:i===0?[]:[],acting:false})),board:[],pot:0,button:G?G.button:S.button};}
+  const la=lastActs(G.log,G.log.length,G.street);
+  return{seats:G.s.map(x=>{let cards;if(x.isHero)cards=x.hole;else if(G.over&&G.shown[x.seat])cards=G.shown[x.seat];else cards=x.folded?[]:[null,null];
+      return{name:x.name,pos:G.pos(x.seat),stack:x.stack,committed:G.over?0:x.committed,folded:x.folded,allIn:x.allIn,cards,acting:!G.over&&G.actor===x.seat,act:la[x.seat]};}),
+    board:G.board,pot:G.pot,button:G.button};
+}
+function viewFromSnap(R){
+  const{rec,snap}=R,la=lastActs(rec.log,snap.logLen,snap.street);
+  const hidePot=R.questions.some(q=>q.kind==='potprice')&&!R.results.potprice;
+  return{seats:snap.seats.map((x,i)=>({name:i===0?'You':x.name,pos:x.pos,stack:x.stack,committed:x.committed,folded:x.folded,allIn:x.allIn,cards:i===snap.heroSeat?snap.hole:x.folded?[]:[null,null],acting:i===snap.heroSeat,act:la[i]})),
+    board:snap.board,pot:snap.seats.reduce((a,x)=>a+x.total,0),button:snap.button,hidePot,rewound:true};
+}
+function renderTable(){
+  const V=UI.mode==='review'&&UI.review&&UI.review.R?viewFromSnap(UI.review.R):viewFromGame();
+  let h='<div class="felt"></div>';
+  const cx=50,cy=46;
+  V.seats.forEach((x,i)=>{const[sx,sy]=SLOT[i];
+    const cards=x.cards.length?x.cards.map(c=>cardHTML(c,i===0?'':'sm')).join(''):'';
+    h+=`<div class="seat ${i===0?'hero':''} ${x.folded?'folded':''} ${x.acting?'acting':''}" style="left:${sx}%;top:${sy}%">
+      ${i===0?'':`<div class="hole">${cards}</div>`}
+      <div class="plate">${x.pos?`<span class="ps">${x.pos}</span>`:''}${x.act&&!x.folded&&actLabel(x.act)?`<span class="act">${actLabel(x.act)}</span>`:''}
+        <div class="nm">${esc(x.name)}</div><div class="stk">${x.stack}${x.allIn&&!x.folded?' · all-in':''}</div></div>
+      ${i===0?`<div class="hole">${cards}</div>`:''}</div>`;
+    if(x.committed>0){const bx=sx+(cx-sx)*0.42,by=sy+(cy-sy)*0.42;h+=`<div class="bet" style="left:${bx}%;top:${by}%"><span class="chips"></span>${x.committed}</div>`;}
+    if(i===V.button){const dx=sx+(cx-sx)*0.22+(i===0?11:i===3?-10:0),dy=sy+(cy-sy)*0.22;h+=`<div class="dealer" style="left:${dx}%;top:${dy}%">D</div>`;}
+  });
+  const bkey=V.board.join(','),prevKey=UI.lastBoard||'';const fresh=bkey.startsWith(prevKey)&&bkey!==prevKey?prevKey.split(',').filter(Boolean).length:V.board.length;UI.lastBoard=bkey;
+  const slots=[];for(let k=0;k<5;k++)slots.push(V.board[k]!=null?cardHTML(V.board[k],k>=fresh?'deal':''):'<span class="slot"></span>');
+  h+=`<div class="center"><div class="potlabel ${V.hidePot?'hidden':''}">${V.hidePot?'Pot hidden — count it':'Pot '+V.pot}</div><div class="board">${slots.join('')}</div></div>`;
+  if(UI.banner&&UI.mode!=='review')h+=`<div class="banner">${esc(UI.banner.main)}<small>${esc(UI.banner.sub)}</small></div>`;
+  if(V.rewound)h+=`<div class="banner" style="top:63%">Rewound to the moment before you acted<small>Hand #${UI.review.R.rec.hand} · ${STREETS[UI.review.R.snap.street]}</small></div>`;
+  $('#table').innerHTML=h;
+}
+
+/* ---------- rendering: action bar ---------- */
+function renderActionBar(){
+  const el=$('#actionbar');
+  if(UI.mode==='idle'){el.innerHTML=`<div class="ab-info">Six-handed no-limit hold'em · blinds 1/2 · 200-chip stacks</div><div class="ab-btns"><button class="nextbtn" id="sitBtn">${tableHands().length?'Continue the table':'Sit down'}</button></div><div></div>`;$('#sitBtn').onclick=dealHand;return;}
+  if(UI.mode==='drill'){el.innerHTML=`<div class="ab-info"><strong>Due reviews</strong> · same skills with new amounts or new cards.</div><div></div><div class="hint">Answer in the coach panel.</div>`;return;}
+  if(UI.mode==='review'){el.innerHTML=`<div class="ab-info"><strong>Review</strong> · answer in the coach panel before anything is revealed.</div><div></div><div class="hint">Action history stays visible on the right.</div>`;return;}
+  if(UI.mode==='between'){el.innerHTML=`<div class="ab-info"><strong>${esc(UI.banner?UI.banner.sub:'')}</strong></div><div class="ab-btns"><button class="nextbtn" id="nextBtn">${esc(UI.nextLabel||'Next hand')}</button></div><div class="row" style="display:flex;justify-content:flex-end"><button class="flag ${lastHeroDecision()&&lastHeroDecision().flagged?'on':''}" id="flagBtn">${lastHeroDecision()&&lastHeroDecision().flagged?'Flagged for review':'Flag my last decision'}</button></div>`;
+    $('#nextBtn').onclick=()=>{clearTimer();const block=tableHands().filter(r=>r.hand>S.blockStart);const pick=block.length>=S.settings.interval?pickDecision(block):null;if(pick)startReview(pick.rec,pick.k,true);else dealHand();};
+    $('#flagBtn').onclick=toggleFlag;return;}
+  const heroTurn=UI.snap&&!G.over;
+  if(!heroTurn){el.innerHTML=`<div class="ab-info">Hand #${G.handNo} · ${STREETS[G.street]}</div><div class="waitmsg">${G.actor!=null?esc(G.s[G.actor].name)+' is thinking…':''}</div><div style="display:flex;justify-content:flex-end"><button class="flag ${UI.flagNext||(lastHeroDecision()&&lastHeroDecision().flagged)?'on':''}" id="flagBtn">${(lastHeroDecision()&&lastHeroDecision().flagged)?'Flagged for review':'Flag my last decision'}</button></div>`;$('#flagBtn').onclick=toggleFlag;return;}
+  const L=G.legal(G.actor),me=G.s[G.actor],pot=G.pot;
+  const presets=[];
+  if(L.canRaise){
+    if(G.street===0){if(G.raisers.length===0){presets.push(['2.5 bb',5],['3 bb',6],['4 bb',8]);}else{presets.push(['3×',G.currentBet*3],['4×',G.currentBet*4]);}}
+    else{const base=G.currentBet===0?0:G.currentBet,pp=pot+L.toCall;[['⅓',1/3],['½',0.5],['⅔',2/3],['¾',0.75],['Pot',1]].forEach(([l,f])=>presets.push([l,Math.round(base+f*pp)]));}
+    presets.push(['All-in',L.maxTo]);
+  }
+  const raiseWord=G.currentBet===0?'Bet':'Raise to',betShown=G.currentBet===0?UI.betTo:UI.betTo;
+  el.innerHTML=`<div class="ab-info">Hand #${G.handNo} · <strong>${G.pos(G.actor)}</strong> · stack ${me.stack}<br>To call <strong>${L.toCall}</strong> · pot <strong>${pot}</strong>${L.canRaise?` · ${G.currentBet===0?'bet':'raise to'} ${L.minTo}–${L.maxTo}`:''}</div>
+    <div class="ab-btns">${L.canCheck?'':`<button class="abtn fold" id="bFold">Fold<small>F</small></button>`}
+      <button class="abtn call" id="bCall">${L.canCheck?'Check':'Call '+L.toCall}<small>${L.canCheck?'C':L.toCall>=me.stack?'all-in · C':'C'}</small></button>
+      ${L.canRaise?`<button class="abtn raise" id="bRaise">${raiseWord} <span id="raiseAmt">${betShown}</span><small>${UI.betTo>=L.maxTo?'all-in · R':'R'}</small></button>`:''}</div>
+    <div class="sizer">${L.canRaise?`<div class="row">${presets.map(([l,v])=>`<button class="preset" data-v="${Math.max(L.minTo,Math.min(L.maxTo,v))}">${l}</button>`).join('')}</div>
+      <div class="row"><input type="range" id="betRange" min="${L.minTo}" max="${L.maxTo}" step="1" value="${UI.betTo}" aria-label="Bet size"><input type="number" id="betNum" min="${L.minTo}" max="${L.maxTo}" value="${UI.betTo}" aria-label="Bet size in chips"></div>`:''}
+      <div class="row" style="justify-content:flex-end"><button class="flag ${UI.snap.flagged?'on':''}" id="flagBtn">${UI.snap.flagged?'Flagged for review':'Flag this decision'}</button></div></div>`;
+  const setBet=v=>{v=Math.max(L.minTo,Math.min(L.maxTo,Math.round(+v||L.minTo)));UI.betTo=v;const r=$('#betRange'),n=$('#betNum'),a=$('#raiseAmt');if(r)r.value=v;if(n&&document.activeElement!==n)n.value=v;if(a)a.textContent=v;};
+  if($('#bFold'))$('#bFold').onclick=()=>heroAct('fold');
+  $('#bCall').onclick=()=>heroAct(L.canCheck?'check':'call');
+  if($('#bRaise')){$('#bRaise').onclick=()=>heroAct(G.currentBet===0?'bet':'raise',UI.betTo);
+    $('#betRange').oninput=e=>setBet(e.target.value);$('#betNum').oninput=e=>setBet(e.target.value);
+    el.querySelectorAll('.preset').forEach(b=>b.onclick=()=>setBet(b.dataset.v));}
+  $('#flagBtn').onclick=toggleFlag;
+}
+function lastHeroDecision(){if(G&&G.heroDecisions&&G.heroDecisions.length&&!G.over)return G.heroDecisions[G.heroDecisions.length-1];const r=tableHands().slice(-1)[0];return r&&r.snaps.length?r.snaps[r.snaps.length-1]:null;}
+function toggleFlag(){
+  if(UI.snap){UI.snap.flagged=!UI.snap.flagged;}
+  else if(G&&!G.over&&G.heroDecisions.length){const d=G.heroDecisions[G.heroDecisions.length-1];d.flagged=!d.flagged;}
+  else{const r=tableHands().slice(-1)[0];if(r&&r.snaps.length){const d=r.snaps[r.snaps.length-1];d.flagged=!d.flagged;saveHand(r);}else{UI.flagNext=!UI.flagNext;}}
+  toast('Flag saved — flagged decisions are reviewed first.');renderActionBar();
+}
+document.addEventListener('keydown',e=>{
+  if(UI.mode!=='play'||!UI.snap||/input|textarea|select/i.test(e.target.tagName))return;
+  const k=e.key.toLowerCase();if(k==='f'&&$('#bFold'))$('#bFold').click();else if(k==='c')$('#bCall').click();else if(k==='r'&&$('#bRaise'))$('#bRaise').click();
+});
+
+/* ---------- side panel: tabs ---------- */
+function renderSide(){
+  const el=$('#side');
+  if(UI.mode==='review'&&UI.review){el.innerHTML=`<div class="coach" id="coach"></div>`;renderCoach();return;}
+  if(UI.drills){el.innerHTML=`<div class="coach" id="coach"></div>`;renderDrill();return;}
+  const tabs=[['hand','Hand'],['players','Players'],['you','You'],['hands','Hands'],['progress','Progress']];
+  el.innerHTML=`<div class="tabs" role="tablist">${tabs.map(([id,l])=>`<button class="tab ${UI.tab===id?'on':''}" data-t="${id}" role="tab">${l}</button>`).join('')}</div><div class="panel" id="panel"></div>`;
+  el.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{UI.tab=b.dataset.t;renderSide();});
+  const p=$('#panel');
+  if(UI.tab==='hand')p.innerHTML=G&&G.log&&G.log.length?logHTML(G.log,G.s,null):`<p class="muted">The action history of the current hand appears here.</p>${coverageHTML()}`;
+  else if(UI.tab==='players')p.innerHTML=playersHTML();
+  else if(UI.tab==='hands')renderHands(p);
+  else if(UI.tab==='you')renderYou(p);
+  else renderProgress(p);
+}
+function playersHTML(){
+  const hs=tableHands();let h=`<p class="muted" style="margin-top:0">Only what you could see: actions and hands shown at showdown. Sample sizes matter.</p>`;
+  S.players.slice(1).forEach((p,i)=>{const o=observe(p.name,hs);const n=o.hands||0;const r=(a,b)=>b?Math.round(100*a/b)+'%':'–';
+    h+=`<div class="hud"><h4>${esc(p.name)} <span>${n} hand${n===1?'':'s'} · stack ${p.stack}</span></h4>
+      <div class="stats"><div>${r(o.vpip,n)}<small>VPIP</small></div><div>${r(o.pfr,n)}<small>PFR</small></div><div>${o.calls?(o.bets/o.calls).toFixed(1):o.bets?'∞':'–'}<small>Aggr.</small></div><div>${r(o.folds,o.faced)}<small>Fold to bet</small></div><div>${r(o.wtsd,o.sawFlop)}<small>Showdown</small></div></div>
+      ${o.showdowns.length?`<div class="sd">Shown: ${o.showdowns.slice(-4).map(s=>`<span>${cardsXS(s.cards)} <small>#${s.hand}</small></span>`).join(' ')}</div>`:''}
+      <div class="sd">${o.betRec.length} postflop bets seen, ${o.betRec.filter(b=>b.shown).length} reached showdown${o.betRec.filter(b=>b.kind==='bluff').length?`, ${o.betRec.filter(b=>b.kind==='bluff').length} bluff${o.betRec.filter(b=>b.kind==='bluff').length===1?'':'s'}`:''}</div></div>`;});
+  return h;
+}
+function renderHands(p){
+  const hs=tableHands().slice().reverse();
+  if(!hs.length){p.innerHTML='<p class="muted">Finished hands are saved here, including between visits.</p>';return;}
+  p.innerHTML=hs.slice(0,60).map(r=>{const net=r.result.net[0];
+    return`<details class="handrow"><summary>#${r.hand} · ${r.players[0].pos} ${cardsXS(r.hole)} <span class="${net>0?'net pos':net<0?'net neg':'muted'}" style="margin-left:auto">${net>0?'+':''}${net}</span></summary>
+      ${logHTML(r.log,r.players.map((x,i)=>({name:i===0?'You':x.name})),null)}
+      <div class="rowbtns">${r.snaps.map((s,k)=>`<button class="btn2" data-h="${r.hand}" data-k="${k}">Review ${STREETS[s.street]} ${s.action?s.action.type:''}${s.flagged?' (flagged)':''}</button>`).join('')}</div></details>`;}).join('');
+  p.querySelectorAll('button[data-h]').forEach(b=>b.onclick=()=>{const r=tableHands().find(x=>x.hand===+b.dataset.h);if(G&&!G.over&&UI.mode==='play'){toast('Finish the current hand first.');return;}startReview(r,+b.dataset.k,false);});
+}
+function dueItems(){return S.queue.filter(it=>isDue(it,S.handNo));}
+function renderProgress(p){
+  const due=dueItems();
+  let h=`<h3 class="sec">Skills</h3>`;
+  for(const k in SKILLS){const st=S.skills[k],rec=st.recent.slice(-8);const missRecent=st.recent.slice(-5).filter(x=>!x).length;
+    h+=`<div class="skillrow"><div>${SKILLS[k]}${missRecent>=2?'<span class="tag">repeatedly missed</span>':''}<div class="muted">${st.att} answered · ${st.miss} missed</div></div><div class="dots">${rec.map(x=>`<i class="${x?'ok':'no'}"></i>`).join('')}</div></div>`;}
+  h+=`<h3 class="sec">Due reviews (${due.length})</h3>`;
+  h+=S.queue.length?`<ul class="declist">${S.queue.slice().sort((a,b)=>a.due-b.due).slice(0,8).map(it=>`<li class="muted" style="font:500 15px var(--f-num)">${SKILLS[it.skill]} · from hand #${it.hand} · ${isDue(it,S.handNo)?'<b style="color:#ffb3aa">due now</b>':'due '+when(it.due)}</li>`).join('')}</ul>`:'<p class="muted">Missed skills come back here, sooner after a miss and later after a success.</p>';
+  if(due.length)h+=`<button class="btn2" id="doDue">Do due reviews now</button>`;
+  if(S.deferred.length)h+=`<h3 class="sec">Deferred decisions</h3>${S.deferred.map((d,i)=>`<button class="btn2" data-di="${i}" style="margin:3px 0">Hand #${d.hand}: ${esc(d.label||'review')}</button>`).join('')}`;
+  h+=`<h3 class="sec">Settings</h3><div class="field"><label for="iv">Review every</label><select id="iv">${[1,2,3,4,5].map(n=>`<option ${n===S.settings.interval?'selected':''}>${n}</option>`).join('')}</select><span class="muted">hands</span></div>
+    <div class="field"><label for="sp">Opponent speed</label><select id="sp"><option value="normal" ${S.settings.speed==='normal'?'selected':''}>Normal</option><option value="fast" ${S.settings.speed==='fast'?'selected':''}>Fast</option></select></div>
+    <div class="rowbtns"><button class="btn2" id="newT">New table (keeps your progress)</button></div>
+    <h3 class="sec">Your data</h3><p class="muted" style="font-size:15px">${esc(storageText())}</p>
+    <div class="rowbtns"><button class="btn2" id="bkDl">Download backup</button><button class="btn2" id="bkCp">Copy backup</button><label class="btn2" style="display:inline-flex;align-items:center;cursor:pointer">Restore from backup<input type="file" id="bkIn" accept=".json,application/json" hidden></label></div>
+    <div class="rowbtns"><button class="btn2" id="wipe" style="border-color:#5a2a25;color:#ffb3aa">Erase all saved data</button></div>
+    ${coverageHTML()}<h3 class="sec">Benchmark</h3><div id="bench"></div>`;
+  p.innerHTML=h;
+  $('#iv').onchange=e=>{S.settings.interval=+e.target.value;save();};
+  $('#sp').onchange=e=>{S.settings.speed=e.target.value;save();};
+  $('#bkDl').onclick=downloadBackup;$('#bkCp').onclick=copyBackup;$('#bkIn').onchange=e=>{const f=e.target.files[0];if(f)importBackup(f);e.target.value='';};
+  $('#wipe').onclick=()=>confirmBox('Erase every saved hand, review and skill record on this device'+(DB?' and in your Claude account':'')+'? This cannot be undone.','Erase everything',eraseAll);
+  $('#newT').onclick=()=>{if(G&&!G.over&&UI.mode==='play'){toast('Finish the current hand first.');return;}newTable();hydrate();UI.mode='idle';render();toast('New table: five new opponents.');};
+  if($('#doDue'))$('#doDue').onclick=()=>{if(G&&!G.over&&UI.mode==='play'){toast('Finish the current hand first.');return;}startDrills(false);};
+  p.querySelectorAll('button[data-di]').forEach(b=>b.onclick=()=>{const d=S.deferred[+b.dataset.di];const r=HANDS.find(x=>x.tableId===d.tableId&&x.hand===d.hand);if(!r){toast('That hand is no longer saved.');return;}if(G&&!G.over&&UI.mode==='play'){toast('Finish the current hand first.');return;}S.deferred.splice(+b.dataset.di,1);save();startReview(r,d.k,false);});
+  renderBench($('#bench'));
+}
+function when(t){const d=t-Date.now();if(d<60e3)return'in under a minute';if(d<3600e3)return`in ${Math.round(d/60e3)} min`;if(d<86400e3)return`in ${Math.round(d/3600e3)} h`;return`in ${Math.round(d/86400e3)} days`;}
+function coverageHTML(){return`<h3 class="sec">GTO coverage</h3><p class="muted" style="font-size:15px">Heads-up river decisions only: a check-or-bet tree with one bet size and no raises, solved inside the app with CFR+ from stated ranges, with no rake. Every number shows its iteration count and exploitability. Other spots show “GTO reference unavailable” and keep the pot math, the range read and the opponent adjustment. Preflop charts here are heuristic player-type models, not GTO.</p>`;}
+let BENCH=null;
+function renderBench(el){
+  if(!BENCH){el.innerHTML=`<p class="muted" style="font-size:15px">Pot 100, bet 75, half value hands and half bluff candidates, against a pure bluff-catcher.</p><button class="btn2" id="runB">Run the benchmark solve</button>`;$('#runB').onclick=()=>{BENCH=benchmark();renderBench(el);};return;}
+  const b=BENCH;
+  el.innerHTML=`<div class="hud"><div class="kv" style="font-size:15px"><dt>Bets bluff candidates</dt><dd>${pct(b.betB,2)} (exact 3/7 = ${pct(3/7,2)})</dd><dt>Bets value hands</dt><dd>${pct(b.betV,1)}</dd><dt>Defender calls</dt><dd>${pct(b.call,2)} (exact 4/7 = ${pct(4/7,2)})</dd><dt>Share of bets that are bluffs</dt><dd>${pct(b.bluffShare,2)} (exact 30%)</dd><dt>Source</dt><dd>CFR+, ${b.iters} iterations, exploitability ${b.expl.toFixed(3)} chips</dd></div>
+    <p style="margin:10px 0 4px;font:600 15px var(--f-num)">Your read: he bets every value hand and <span id="bB">25%</span> of his bluff candidates</p>
+    <input type="range" id="bR" min="0" max="100" value="25" style="width:100%;accent-color:var(--chip)" aria-label="Bluff-candidate betting frequency">
+    <p class="muted" id="bOut" style="font:500 15px var(--f-num)"></p></div>`;
+  const upd=()=>{const beta=+$('#bR').value/100,s=beta/(1+beta),ev=s*175-(1-s)*75;$('#bB').textContent=Math.round(beta*100)+'%';
+    $('#bOut').innerHTML=`Share of his bets that are bluffs = ${(beta*100).toFixed(0)}% × 50% ÷ (50% + ${(beta*100).toFixed(0)}% × 50%) = <b>${pct(s,1)}</b>. Calling is worth ${pct(s,0)} × 175 − ${pct(1-s,0)} × 75 = <b>${ev>=0?'+':''}${ev.toFixed(1)}</b> chips vs folding → <b>${Math.abs(ev)<0.5?'tie':ev>0?'call':'fold'}</b>. It flips at a 30% bluff share (betting 3/7 of bluff candidates).`;};
+  $('#bR').oninput=upd;upd();
+}
+
+/* ---------- review flow ---------- */
+function startReview(rec,k,fromBlock,blockHands){
+  clearTimer();
+  if(fromBlock&&!blockHands){blockHands=tableHands().filter(r=>r.hand>S.blockStart);S.blockStart=Math.max(...tableHands().map(r=>r.hand));}
+  let R;try{R=buildReview(rec,k,HANDS.filter(h=>h.tableId===rec.tableId));}catch(e){console.error(e);toast('Could not build that review.');dealHand();return;}
+  UI.review={R,qi:-1,fromBlock,blockHands:blockHands||null};
+  UI.mode='review';S.pending={tableId:rec.tableId,hand:rec.hand,k};save();render();
+}
+function decisionLabel(rec,snap){const pos=snap.seats[snap.heroSeat].pos;return`${STREETS[snap.street]}, ${pos}, ${cardTxt(snap.hole[0])}${cardTxt(snap.hole[1])} — you ${snap.action?snap.action.type+(snap.action.type==='raise'?' to '+snap.action.to:snap.action.type==='bet'?' '+snap.action.amount:''):'acted'}`;}
+function steps(R,qi){return`<div class="steps">${R.questions.map((q,i)=>`<i class="${i<qi?'done':i===qi?'on':''}"></i>`).join('')}<i class="${qi>=R.questions.length?'on':''}"></i></div>`;}
+function histBox(R){return`<div class="histline">${logHTML(R.rec.log,R.rec.players.map((x,i)=>({name:i===0?'You':x.name})),R.snap.logLen,0,'loglist')}</div>`;}
+function renderCoach(){
+  const el=$('#coach'),V=UI.review,R=V.R,snap=R.snap;
+  if(V.qi===-1){
+    const vil=R.villain!=null?`${esc(R.vname)} (${snap.seats[R.villain].pos})`:'the players behind you';
+    const others=V.blockHands?V.blockHands.flatMap(r=>r.snaps.map((s,k)=>({r,s,k,sc:interest(r,s)}))):[];
+    el.innerHTML=`<h2>Rewind: hand #${R.rec.hand}, ${STREETS[snap.street]}</h2>
+      <p class="sub">You held ${cardsXS(snap.hole)} in the ${snap.seats[0].pos}${snap.board.length?' on '+cardsXS(snap.board):''}. The decision is about ${vil}. You'll answer ${R.questions.length} short questions using only what you knew then. Nothing is revealed before you answer.</p>
+      ${steps(R,-1)}<h3>Action before your decision</h3>${histBox(R)}
+      <div class="rowbtns"><button class="go" id="startQ">Start</button><button class="ghost" id="defer">Defer this review</button></div>
+      ${''}${others.length>1?`<h3>Or pick another decision from these hands</h3><ul class="declist">${others.map(o=>`<li><button data-h="${o.r.hand}" data-k="${o.k}" class="${o.r.hand===R.rec.hand&&o.k===R.k?'pick':''}">#${o.r.hand} · ${esc(decisionLabel(o.r,o.s))}${o.s.flagged?' · flagged':''}</button></li>`).join('')}</ul>`:''}`;
+    el.querySelectorAll('.histline').forEach(x=>x.scrollTop=x.scrollHeight);
+    $('#startQ').onclick=()=>{V.qi=0;render();};
+    $('#defer').onclick=()=>{S.deferred.push({tableId:R.rec.tableId,hand:R.rec.hand,k:R.k,label:decisionLabel(R.rec,snap)});S.pending=null;save();toast('Saved for later — find it under Progress.');dealHand();};
+    el.querySelectorAll('button[data-h]').forEach(b=>b.onclick=()=>{const r=tableHands().find(x=>x.hand===+b.dataset.h);startReview(r,+b.dataset.k,true,V.blockHands);});
+    return;}
+  if(V.qi<R.questions.length){renderQuestion(el,R,R.questions[V.qi],V.qi);return;}
+  renderSummary(el,R);
+}
+function renderQuestion(el,R,q,qi){
+  const done=R.results[q.kind];
+  let h=`<h2>${esc(q.title)}</h2><p class="sub">Question ${qi+1} of ${R.questions.length} · hand #${R.rec.hand}, ${STREETS[R.snap.street]} · you hold ${cardsXS(R.snap.hole)}</p>${steps(R,qi)}`;
+  h+=`<details ${qi===0?'open':''}><summary class="sub" style="cursor:pointer">Action so far</summary>${histBox(R)}</details>`;
+  if(q.kind==='potprice'){
+    h+=`<form class="qcard" id="qf">${q.fields.map(f=>`<label for="f_${f.id}">${esc(f.label)}</label><div class="inrow"><input type="number" step="any" id="f_${f.id}" name="${f.id}" ${done?'disabled':''} value="${done&&!isNaN(done.fields[f.id].v)?esc(done.fields[f.id].v):''}" required><span>${f.unit}</span></div>`).join('')}
+      ${done?'':'<button class="go" type="submit">Check my answers</button>'}</form>`;
+    if(done)h+=potFeedback(R,q,done);
+  }else if(q.kind==='range'){
+    h+=`<div class="qcard"><p style="margin:0 0 4px;font:600 17px/1.3 var(--f-num)">${esc(q.prompt)}</p>${q.lessPrompt?`<p class="sub" style="margin:0">${esc(q.lessPrompt)} Mark those with the ↓ brush.</p>`:''}
+      <div id="gridHost"></div><label for="rtxt">Explain your read (optional, but it gets assessed)</label><textarea id="rtxt" ${done?'disabled':''} placeholder="Which actions narrowed his range, and how?">${done?esc(done.text):''}</textarea>
+      ${done?'':'<button class="go" id="rgo">Submit my range</button>'}</div>`;
+    if(done)h+=rangeFeedback(R,q,done);
+  }else if(q.kind==='play'){
+    const L={minTo:R.snap.minTo,maxTo:R.snap.maxTo};const ans=done?done.ans:(UI.review.draft||{});
+    h+=`<div class="qcard"><p style="margin:0 0 6px;font:600 17px/1.3 var(--f-num)">${esc(q.prompt)}</p>
+      <div class="choice" id="pchoice">${q.opts.map(o=>`<button type="button" data-o="${o}" class="${ans.action===o?'on':''}" ${done?'disabled':''}>${o==='call'&&R.spot==='rfi'?'limp':o}</button>`).join('')}</div>
+      <div id="sizeRow" ${(ans.action==='bet'||ans.action==='raise')?'':'hidden'}><label for="psize">${R.snap.toCall>0||R.spot==='rfi'?'Raise to':'Bet'} (legal: ${R.snap.toCall>0||R.spot==='rfi'?L.minTo:Math.max(2,L.minTo)}–${R.snap.toCall>0||R.spot==='rfi'?L.maxTo:L.maxTo-R.snap.seats[0].committed})</label><div class="inrow"><input type="number" id="psize" value="${esc(ans.size||'')}" ${done?'disabled':''}><span>chips</span></div></div>
+      <label for="pest">${esc(q.est.label)}</label><div class="inrow"><input type="number" id="pest" min="0" max="100" step="any" value="${esc(ans.estimate==null?'':ans.estimate)}" ${done?'disabled':''}><span>%</span></div>
+      <label for="preason">Why?</label><textarea id="preason" ${done?'disabled':''} placeholder="Price, his range, what you've seen from him">${esc(ans.reason||'')}</textarea>
+      ${done?'':'<button class="go" id="pgo">Submit my play</button>'}</div>`;
+    if(done)h+=playFeedback(R,done);
+  }
+  if(done)h+=`<div class="rowbtns"><button class="go" id="nextQ">${qi+1<R.questions.length?'Next question':'See the calculation and takeaway'}</button></div>`;
+  el.innerHTML=h;el.scrollTop=0;el.querySelectorAll('.histline').forEach(x=>x.scrollTop=x.scrollHeight);
+  if(q.kind==='potprice'&&!done)$('#qf').onsubmit=e=>{e.preventDefault();const vals={};q.fields.forEach(f=>vals[f.id]=$('#f_'+f.id).value);
+    const r=gradePotPrice(R,q,vals);R.results.potprice=r;for(const s in r.skills)recordSkill(s,r.skills[s],R,vals);render();};
+  if(q.kind==='range'){
+    const G2=makeGrid($('#gridHost'),{blk:R.model.blk,editable:!done,down:!!q.lessPrompt,init:done?done.user:(UI.review.gridState||null),initDown:done?done.down:null,
+      heat:done?done.g.T.rel:null,onChange:st=>{UI.review.gridState=st.w;}});
+    if(!done)$('#rgo').onclick=()=>{const u=G2.weights(),dn=G2.downs();if(u.every(x=>x===0)){toast('Select at least a few hands first.');return;}
+      const g=gradeRange(R,q,u,dn);R.results.range={user:Array.from(u),down:Array.from(dn),text:$('#rtxt').value,g,ok:g.ok};
+      recordSkill('range',g.ok,R,{credit:+g.credit.toFixed(2),text:$('#rtxt').value.slice(0,300)});render();};
+  }
+  if(q.kind==='play'&&!done){
+    const d=UI.review.draft=UI.review.draft||{};
+    el.querySelectorAll('#pchoice button').forEach(b=>b.onclick=()=>{d.action=b.dataset.o;el.querySelectorAll('#pchoice button').forEach(x=>x.classList.toggle('on',x===b));$('#sizeRow').hidden=!(d.action==='bet'||d.action==='raise');});
+    $('#pgo').onclick=()=>{d.size=$('#psize').value;d.estimate=$('#pest').value;d.reason=$('#preason').value;
+      if(!d.action){toast('Choose an action first.');return;}if(d.estimate===''){toast('Give your estimate — it is what the coach tests your play against.');return;}
+      if((d.action==='bet'||d.action==='raise')&&!(+d.size>0)){toast('Give a size for your bet or raise.');return;}
+      const g=gradePlay(R,{...d});R.results.play={ans:{...d},g};recordSkill('play',g.ok,R,{action:d.action,size:d.size,estimate:d.estimate,reason:(d.reason||'').slice(0,300)});render();};
+  }
+  if(done)$('#nextQ').onclick=()=>{UI.review.qi++;render();};
+}
+function verdict(ok,txtOk,txtNo,mid){return`<div class="v">${ok===null?mid||'':ok?txtOk:txtNo}</div>`;}
+function potFeedback(R,q,r){
+  const pm=R.pm;let h='';
+  const allOK=Object.values(r.fields).every(x=>x.ok);
+  h+=`<div class="fb ${allOK?'ok':'no'}">${verdict(allOK,'All correct','Not quite')}`;
+  for(const f of q.fields){const x=r.fields[f.id];h+=`<div style="font:500 15px var(--f-num)">${esc(f.label)} <b>${fmt(x.ans)}${f.unit==='%'?'%':''}</b> — you said ${isNaN(x.v)?'nothing':fmt(x.v)+(f.unit==='%'?'%':'')} ${x.ok?'✓':'✗'}${x.note?`<br><span class="sub">${esc(x.note)}</span>`:''}</div>`;}
+  h+=`</div><h3>The calculation</h3>`;
+  for(const ln of R.breakdown)h+=`<div class="calc"><b>${ln.street[0].toUpperCase()+ln.street.slice(1)}${ln.current?' (so far)':''}:</b> ${ln.parts.map(p=>`${esc(p.who)} ${p.a}${p.folded?' (folded)':''}`).join(' + ')} = ${ln.total} → pot ${ln.running}</div>`;
+  if(pm.toCall>0){
+    h+=`<div class="calc">You had ${R.snap.seats[0].total} in already and needed <b>${pm.toCall}</b> more. Pot after your call: ${pm.potNow} + ${pm.toCall} = <b>${pm.potAfter}</b>${pm.sidePot?`; you can win only <b>${pm.elig}</b> of it (the rest is a side pot you can't match)`:''}.</div>
+      <div class="calc">Break-even = amount to call ÷ pot after your call = ${pm.toCall} ÷ ${pm.elig} = <b>${pct(pm.breakEven)}</b>. Ties count as your share of the pot when you estimate how often you win.</div>`;
+    if(R.snap.street<3)h+=`<p class="sub">On the ${STREETS[R.snap.street]} this is a floor, not the whole story. ${R.snap.street===0?'You still have to play the flop, turn and river':'Bets on later streets will make you pay again'}: draws and weak pairs often fail to reach showdown, and hands that make the nuts can win more. With ${Math.min(...R.snap.seats.filter(x=>!x.folded).map(x=>x.stack))} chips behind, the stack-to-pot ratio is ${(Math.min(...R.snap.seats.filter(x=>!x.folded).map(x=>x.stack))/Math.max(1,pm.potAfter)).toFixed(1)}.</p>`;
+  }else{
+    h+=`<div class="calc">${R.spot==='rfi'?`Raising to ${R.openTo} costs ${R.betSize} more.`:`A ${R.betSize}-chip bet.`} A pure bluff breaks even when folds × pot = calls × bet, so folds needed = ${R.betSize} ÷ (${pm.potNow} + ${R.betSize}) = <b>${pct(R.bluffBE)}</b>.</div>`;
+  }
+  return h;
+}
+function rangeFeedback(R,q,r){
+  const g=r.g,lab=k=>CLASS_LABELS[k],chips=(ks,cls,extra)=>ks.length?ks.slice(0,18).map(k=>`<span class="chipk ${cls}">${lab(k.k!=null?k.k:k)}${extra?extra(k):''}</span>`).join('')+(ks.length>18?` <span class="sub">+${ks.length-18} more</span>`:''):'<span class="sub">none</span>';
+  let h=`<div class="fb ${g.ok?'ok':g.credit>=0.35?'mid':'no'}">${verdict(g.ok,'Well-supported read','Off the mark',null)}${!g.ok&&g.credit>=0.35?'<div class="v">Partly right</div>':''}
+    <div style="font:500 15px var(--f-num)">Overlap with the best-matching plausible range: <b>${pct(g.credit,0)}</b> (${esc(g.best.label)}).</div>
+    <div class="sub">Dark cells = the model range (darker = more likely); red outline = your picks. Hatched cells are impossible given the cards you can see.</div></div>`;
+  h+=`<div class="kv" style="margin:8px 0"><dt>Impossible</dt><dd>${chips(g.cat.impossible,'imp')}</dd><dt>Questionable</dt><dd>${chips(g.cat.questionable,'q')}</dd>
+    <dt>Plausible alternative</dt><dd>${chips(g.cat.alternative,'alt',x=>' · '+PROFILES[x.p].label.toLowerCase())}</dd><dt>Well-supported</dt><dd>${chips(g.cat.supported,'ok')}</dd><dt>Left out</dt><dd>${chips(g.cat.missed,'miss')}</dd></div>`;
+  if(g.cat.impossible.length)h+=`<p class="sub">Impossible: with ${cardsXS(R.dead)} visible, no combination of those hands is left.</p>`;
+  if(g.compAfter){const L=R.snap.board.length?POST_BUCKETS:PRE_BUCKETS;
+    h+=`<h3>What “${esc(q.last)}” changed</h3><div class="compbars">${L.map((n,i)=>`<div class="bar"><span>${n}</span><span class="tr"><i class="alt" style="width:${(g.compBefore[i]*100).toFixed(1)}%"></i></span><span class="n">${pct(g.compBefore[i],0)}</span></div><div class="bar"><span></span><span class="tr"><i style="width:${(g.compAfter[i]*100).toFixed(1)}%"></i></span><span class="n">→ ${pct(g.compAfter[i],0)}</span></div>`).join('')}</div>
+      <p class="sub">Grey = his range before that action, dark = after. Hands that got least likely: ${chips(g.less.slice(0,10),'')}${g.downMarked&&g.downMarked.length?`<br>Your ↓ marks: ${g.downHits.length} of ${g.downMarked.length} really did get less likely.`:''}</p>`;
+    if(g.support&&g.support.length)h+=`<h3>Which actions support your read</h3>${g.support.map(s=>{const d=s.keptUser-s.keptModel;return`<div class="calc">${esc(s.phrase[0].toUpperCase()+s.phrase.slice(1))}: the hands you picked would do this ${pct(s.keptUser,0)} of the time, the model range ${pct(s.keptModel,0)}. ${Math.abs(d)<0.08?'Neutral for your read.':d>0?'This action supports your read.':'This action weakens your read.'}</div>`;}).join('')}`;
+  }
+  if(g.worse){h+=`<h3>Worse hands that call</h3><p>About ${pct(g.worseShare,0)} of his calling range is hands you beat: ${chips(g.worse.slice(0,14),'ok')}</p><p class="sub">Better hands that continue: ${chips(g.better.slice(0,10),'q')}</p>`;}
+  const ru=rubric(r.text,'range');if(r.text&&r.text.trim())h+=`<h3>Your explanation</h3>${ru.map(x=>`<div class="sub">${x.ok?'✓':'•'} ${esc(x.msg)}</div>`).join('')}`;
+  return h;
+}
+function playFeedback(R,d){
+  const A=analyze(R),g=d.g,ans=d.ans;let h=`<div class="fb ${g.ok?'ok':'no'}">${verdict(g.ok,'Defensible play','Hard to defend')}`;
+  const est=g.est;
+  if(est!=null){
+    const pLab=A.param==='q'?(R.snap.street===3?'bluffs (hands you beat)':'equity'):'folds';
+    h+=`<div style="font:500 15px var(--f-num)">With your estimate of ${pct(est,0)} ${pLab}, ${A.param==='q'?`calling is worth ${sgn(g.mineEV)} chips vs folding`:R.spot==='rfi'?`a pure steal is worth ${sgn(g.mineEV)} chips`:`betting is worth ${sgn(g.mineEV)} chips vs checking`}. ${g.consistent===false?'<b>Your action does not follow from your own estimate.</b>':'Your action follows from your estimate.'}</div>`;
+    if(g.half)h+=`<div style="font:500 15px var(--f-num)">If he ${A.param==='q'?'bluffs':'folds'} half as often as you estimated (${pct(g.half.x,0)}): ${sgn(g.half.ev)} chips → ${g.half.ev>0?(A.param==='q'?'still call':'still bet'):(A.param==='q'?'fold':'check')}.</div>`;
+  }
+  h+=`<div style="font:500 15px var(--f-num)">${esc(flipText(R,A))}</div>`;
+  if(g.atSize)h+=`<div style="font:500 15px var(--f-num)">At your size (${g.atSize.b}): ${esc(g.atSize.text)}</div>`;
+  h+='</div>';
+  return h;
+}
+const sgn=x=>x==null||isNaN(x)?'–':(x>=0?'+':'−')+fmt(Math.abs(x));
+function flipText(R,A){
+  if(A.flip==null)return A.ev(0.5)>0?`${A.best} is better at every value of ${A.paramLabel}.`:`${A.best} is better at every value of ${A.paramLabel}.`;
+  if(A.param==='q')return`Calling beats folding when ${A.paramLabel} is above ${pct(A.flip,1)}.`;
+  const lowGood=A.ev(Math.max(0,A.flip-0.05))>0;
+  if(R.spot==='rfi')return`The steal alone pays when everyone folds more than ${pct(A.flip,1)} of the time.`;
+  return lowGood?`Betting beats checking only if he folds less than ${pct(A.flip,1)}: this hand bets for value, so it needs calls from worse.`:`Betting beats checking when he folds more than ${pct(A.flip,1)}.`;
+}
+function journal(R,A){
+  if(R.journaled)return;R.journaled=true;const pr=R.results.play,rr=R.results.range,pp=R.results.potprice;
+  const slip=pp&&Object.values(pp.fields).some(f=>!f.ok&&f.note&&/divided by the pot before/.test(f.note));
+  S.journal.push({at:Date.now(),tableId:R.rec.tableId,hand:R.rec.hand,k:R.k,spot:R.spot,street:R.snap.street,pos:R.snap.seats[0].pos,hole:R.snap.hole,board:R.snap.board,vname:R.vname||null,
+    pot:pp&&pp.skills.pot!=null?pp.skills.pot:null,price:pp&&pp.skills.price!=null?pp.skills.price:null,slip:!!slip,
+    range:rr?{credit:+rr.g.credit.toFixed(2),ok:rr.ok,imp:rr.g.cat.impossible.length,q:rr.g.cat.questionable.length}:null,
+    play:pr?{action:pr.ans.action,size:pr.ans.size||null,est:pr.ans.estimate,ok:pr.g.ok,consistent:pr.g.consistent,best:A.best,gto:A.gto.available?pr.g.gtoOK:null}:null,
+    takeaway:takeaway(R),net:R.rec.result.net[0]});
+  if(S.journal.length>250)S.journal=S.journal.slice(-250);save();
+}
+function renderSummary(el,R){
+  const A=analyze(R),pm=R.pm,gto=A.gto;journal(R,A);
+  let h=`<h2>Calculation, assessment, takeaway</h2><p class="sub">Hand #${R.rec.hand}, ${STREETS[R.snap.street]} · you held ${cardsXS(R.snap.hole)}${R.snap.board.length?' on '+cardsXS(R.snap.board):''}</p>${steps(R,R.questions.length)}`;
+  h+=`<div class="take"><b>Takeaway</b>${esc(takeaway(R))}</div>`;
+  {const net=R.rec.result.net[0];const sd=R.rec.result.type==='showdown';
+   h+=`<p class="sub">Result of the hand: you ${net>0?'won '+net:net<0?'lost '+(-net):'broke even'}${sd?' at showdown':''}. That outcome is not used to grade this decision; ${sd?'any cards shown count as one observation for later reviews.':'only what you knew when you acted counts.'}</p>`;}
+  // side by side
+  h+=`<div class="two"><div class="col"><h4>GTO reference</h4>${gtoHTML(R,A)}</div><div class="col"><h4>Adjustment for ${esc(R.vname||'the table')}</h4>${adjHTML(R,A)}</div></div>`;
+  if(gto.available){const main=Object.entries(gto.freq).sort((a,b)=>b[1]-a[1])[0][0];const mixed=gto.credit.length>1;
+    if(!mixed&&main!==normAct(A.best))h+=`<div class="fb mid"><div class="v">Why they differ</div>The equilibrium assumes he balances his ${A.param==='q'?'bets so that roughly the break-even share are bluffs':'calls so that your bets are just indifferent'}. Your evidence puts the ${A.paramLabel} at ${pct(A.belief.mean,0)}, ${A.belief.mean>A.threshold?'above':'below'} the ${pct(A.threshold,0)} switch point, so the exploit is to ${A.best}. If your read is wrong and the true value is ${A.belief.mean>A.threshold?'below':'above'} ${pct(A.threshold,0)}, the GTO play is better.</div>`;
+    else if(mixed||main===normAct(A.best))h+=`<p class="sub">Both columns point the same way${mixed?' (the equilibrium mixes, so either action gets credit)':''}.</p>`;}
+  // your answer & assessment
+  h+=`<h3>Assessment of your reasoning</h3>`;
+  const pr=R.results.play;
+  if(pr){h+=`<div class="calc">You chose <b>${pr.ans.action==='call'&&R.spot==='rfi'?'limp':pr.ans.action}${pr.ans.size?' '+pr.ans.size:''}</b> with an estimate of ${pr.ans.estimate}%. ${pr.g.adjOK?'That matches the opponent-specific line.':'The opponent-specific line prefers '+A.best+'.'} ${gto.available?(pr.g.gtoOK?'The GTO reference gives it credit.':'The GTO reference does not give it credit.'):''}</div>`;
+    h+=pr.g.rubric.map(x=>`<div class="sub">${x.ok?'✓':'•'} ${esc(x.msg)}</div>`).join('');}
+  h+=`<div id="claudeBox"></div>`;
+  const due=dueItems().filter(it=>!(it.hand===R.rec.hand&&it.k===R.k));
+  h+=`<div class="rowbtns"><button class="go" id="dealNext">Deal the next hand</button>${due.length?`<button class="ghost" id="doDrills">Do ${Math.min(2,due.length)} due review${due.length>1?'s':''} first</button>`:''}</div>`;
+  el.innerHTML=h;el.scrollTop=0;
+  wireAdj(R,A);
+  if($('#rerun'))$('#rerun').onclick=()=>{R.analysis.gto=riverGTO(R);render();toast('Re-solved: same inputs, same numbers.');};
+  $('#dealNext').onclick=()=>finishReview(false);
+  if($('#doDrills'))$('#doDrills').onclick=()=>finishReview(true);
+  askClaude(R,A);
+}
+const normAct=a=>a;
+function gtoHTML(R,A){
+  const g=A.gto;
+  if(!g.available)return`<p class="big" style="font-size:22px">GTO reference unavailable</p><p class="sub">${esc(g.why)} The pot math, range read and opponent adjustment still apply.</p>`;
+  const acts=Object.keys(g.freq);
+  let h=`<p class="sub" style="margin-top:0">Equilibrium for your exact hand at this point:</p>`;
+  h+=acts.map(a=>`<div class="bar"><span style="text-transform:capitalize">${a}</span><span class="tr"><i style="width:${(g.freq[a]*100).toFixed(1)}%"></i></span><span class="n">${pct(g.freq[a],0)}</span></div>`).join('');
+  if(g.ev){const ks=acts.slice().sort((a,b)=>g.ev[b]-g.ev[a]),won=a=>g.ev[a]+g.P/2;
+    h+=`<div class="calc">Expected chips you take from the ${fmt(g.P)}-chip pot, net of river bets, against his equilibrium play: ${ks.map(a=>`${a} <b>${fmt(won(a))}</b>`).join(' · ')}. Difference ${fmt(g.ev[ks[0]]-g.ev[ks[1]])} chips.${g.credit.length>1?' Effectively tied (within 1% of the pot): either action gets credit.':''}</div>`;}
+  if(g.eqBluffShare!=null)h+=`<p class="sub">At equilibrium, ${pct(g.eqBluffShare,0)} of his bets here are hands you beat; your break-even is ${pct(A.threshold,0)}.</p>`;
+  h+=`<details class="src"><summary>Model and assumptions (traceable source)</summary><p>${esc(g.source)}</p><button class="ghost" id="rerun">Re-run the solve</button></details>`;
+  return h;
+}
+function adjHTML(R,A){
+  let h='';const o=R.obs;
+  if(A.evidence&&A.evidence.pre){const e=A.evidence;h+=`<p class="sub" style="margin-top:0">Evidence you could have seen: over ${e.hands} hand${e.hands===1?'':'s'}, ${esc(R.vname)} put money in voluntarily ${e.vpip} time${e.vpip===1?'':'s'} and raised ${e.pfr} (VPIP ${e.hands?Math.round(100*e.vpip/e.hands):0}%, PFR ${e.hands?Math.round(100*e.pfr/e.hands):0}%).${e.hands<20?' That is a small sample: the range model leans on the player-type prior.':''}</p>`;}
+  else if(A.evidence){const e=A.evidence;
+    if(A.param==='q')h+=`<p class="sub" style="margin-top:0">Evidence you could have seen: ${e.n} comparable ${e.street} bet${e.n===1?'':'s'} (${e.size}) from ${esc(R.vname)}, ${e.sd} reached showdown, ${e.bluffs} ${e.bluffs===1?'was a bluff':'were bluffs'}.${o?` Over ${o.hands} hands: VPIP ${o.hands?Math.round(100*o.vpip/o.hands):0}%, PFR ${o.hands?Math.round(100*o.pfr/o.hands):0}%, ${o.bets} bets vs ${o.calls} calls.`:''}</p>`;
+    else h+=`<p class="sub" style="margin-top:0">Evidence you could have seen: ${esc(R.vname)} faced ${e.n} ${e.street} bet${e.n===1?'':'s'} and folded ${e.folds}.</p>`;}
+  else if(R.spot==='rfi'&&A.behind)h+=`<p class="sub" style="margin-top:0">Players behind: ${A.behind.map(b=>`${esc(b.name)} (${b.pos}) folds ${pct(b.fold,0)}`).join(', ')}.</p>`;
+  h+=`<div class="kv"><dt>Assumed</dt><dd>${esc(A.paramLabel)} ${pct(A.belief.mean,0)} <span class="sub">(80%: ${pct(A.belief.lo,0)}–${pct(A.belief.hi,0)})</span></dd><dt>Switch point</dt><dd>${esc(flipText(R,A))}</dd><dt>Best here</dt><dd><b style="text-transform:capitalize">${A.tie?'either (tied)':A.best}</b></dd></div>`;
+  h+=`<p class="sub">${esc(A.beliefSource)}</p>`;
+  const lo=A.ev(A.belief.lo),hi=A.ev(A.belief.hi);
+  h+=`<div class="calc">If your read is wrong: at ${pct(A.belief.lo,0)} → ${sgn(lo)}, at ${pct(A.belief.hi,0)} → ${sgn(hi)} chips ${A.param==='q'?'for calling vs folding':R.spot==='rfi'?'for a pure steal':'for betting vs checking'}.</div>`;
+  h+=`<label class="sub" for="adjR" style="display:block;margin-top:10px">Change the estimate: <b id="adjV"></b></label><div class="slider"><input type="range" id="adjR" min="0" max="100" step="1" value="${Math.round(A.belief.mean*100)}"><span class="flipmark" style="left:calc(${(A.flip*100).toFixed(1)}% - 1px)"></span></div><div class="calc" id="adjOut"></div>`;
+  if(A.split)h+=`<label class="sub" for="betaR" style="display:block;margin-top:8px">Or set how often he bets his <i>bluff candidates</i>: <b id="betaV"></b></label><input type="range" id="betaR" min="0" max="100" value="${Math.round(A.split.betBluff*100)}" style="width:100%;accent-color:var(--accent)"><p class="sub" id="betaOut"></p>`;
+  if(A.param==='q'&&A.eqModel!=null)h+=`<p class="sub">Model equity against his whole range: ${pct(A.eqModel,0)}${A.runs>1?` (${A.runs} run-outs per hand)`:' (exact)'}.</p>`;
+  return h;
+}
+function wireAdj(R,A){
+  const r=$('#adjR');if(!r)return;
+  const out=()=>{const x=+r.value/100,ev=A.ev(x);$('#adjV').textContent=pct(x,0);
+    $('#adjOut').innerHTML=A.param==='q'?`At ${pct(x,0)}: calling is worth ${pct(x,0)} × ${fmt(R.pm.elig-R.pm.toCall)} − ${pct(1-x,0)} × ${R.pm.toCall} = <b>${sgn(ev)}</b> chips vs folding → <b>${Math.abs(ev)<0.01*R.pm.elig?'tied':ev>0?'call':'fold'}</b>.`
+      :R.spot==='rfi'?`At ${pct(x,0)} folds: steal EV = ${pct(x,0)} × ${R.pm.potNow} − ${pct(1-x,0)} × ${R.betSize} = <b>${sgn(ev)}</b> (ignores your equity when called).`
+      :`At ${pct(x,0)} folds: bet ${sgn(A.evBet(x))}, check ${sgn(A.evCheck())} → <b>${ev>0?'bet':'check'}</b> (difference ${sgn(ev)}; calls come from his strongest hands; checking assumes a showdown).`;};
+  r.oninput=out;out();
+  const b=$('#betaR');if(b&&A.split){const V=A.split.valueShare,v=A.split.betValue;
+    const up=()=>{const beta=+b.value/100,s=beta*(1-V)/(v*V+beta*(1-V)||1);$('#betaV').textContent=pct(beta,0);
+      $('#betaOut').innerHTML=`The model has him reaching the river with ${pct(V,0)} hands that beat you and betting ${pct(v,0)} of them. Betting ${pct(beta,0)} of the rest makes <b>${pct(s,0)}</b> of his bets hands you beat: ${pct(beta,0)}×${pct(1-V,0)} ÷ (${pct(v,0)}×${pct(V,0)} + ${pct(beta,0)}×${pct(1-V,0)}). Bluff-candidate frequency and bluff share are different numbers.`;
+      r.value=Math.round(s*100);out();};
+    b.oninput=up;$('#betaV').textContent=pct(+b.value/100,0);}
+}
+async function askClaude(R,A){
+  const box=$('#claudeBox');if(!box)return;
+  const rr=R.results.range,pr=R.results.play;if(!(rr&&rr.text&&rr.text.trim())&&!(pr&&pr.ans.reason&&pr.ans.reason.trim()))return;
+  const sample=await cap('sample');if(!sample||!$('#claudeBox'))return;
+  if(R.claude){box.innerHTML=`<div class="cl">${esc(R.claude)}</div>`;return;}
+  box.innerHTML=`<div class="cl sub">Claude is assessing your reasoning…</div>`;
+  try{const r=await sample(claudePrompt(R,A),{modelTier:'default'});R.claude=(r&&r.text||'').trim();if($('#claudeBox'))$('#claudeBox').innerHTML=R.claude?`<p class="sub" style="margin:10px 0 0">Claude's assessment (uses only what you knew at the time):</p><div class="cl"></div>`:'';const c=$('#claudeBox .cl');if(c)c.textContent=R.claude;}
+  catch(e){if($('#claudeBox'))$('#claudeBox').innerHTML=e&&e.code==='not_granted'?'':`<p class="sub">Claude's written assessment isn't available right now; the checks above still apply.</p>`;}
+}
+function claudePrompt(R,A){
+  const s=R.snap,lines=[];for(let k=0;k<s.logLen;k++){const e=R.rec.log[k];if(e.type==='deal'){lines.push(STREETS[e.street]+': '+e.cards.map(cardStr).join(' '));continue;}lines.push(logLine(e,R.rec.players.map((x,i)=>({name:i===0?'You':x.name})))+(e.amount&&e.type!=='raise'?' '+e.amount:''));}
+  const rr=R.results.range,pr=R.results.play,g=rr&&rr.g;
+  const top=g?[...Array(169).keys()].filter(k=>rr.user[k]>0).map(k=>CLASS_LABELS[k]+(rr.user[k]<1?'('+rr.user[k]+')':'')).slice(0,60).join(' '):'';
+  const comp=R.model?composition(R.model.mix,s.board):null,lab=s.board.length?POST_BUCKETS:PRE_BUCKETS;
+  return`You are a poker coach reviewing one decision from a 6-max no-limit hold'em cash game (blinds 1/2 chips). Use ONLY the facts below: they are what the player knew at that moment plus the coach's calculations. Do not invent reads, history or showdown results. Write 70-110 words of plain text, no headings or lists: say what in the reasoning is well supported, point out any impossible card combination or questionable assumption, and give one concrete improvement. Address the player as "you".
+
+FACTS
+Hero: ${s.hole.map(cardStr).join(' ')} in the ${s.seats[0].pos}, stack ${s.seats[0].stack}. Street: ${STREETS[s.street]}. Board: ${s.board.map(cardStr).join(' ')||'none'}.
+Action so far:
+${lines.join('\n')}
+Price: ${R.pm.toCall?`call ${R.pm.toCall}, pot after call ${R.pm.elig}, break-even ${pct(R.pm.breakEven)}`:`pot ${R.pm.potNow}; a ${R.betSize}-chip bluff needs ${pct(R.bluffBE)} folds`}.
+${R.villain!=null?`Opponent: ${R.vname} (${s.seats[R.villain].pos}), stack ${s.seats[R.villain].stack}. Coach's public range model composition: ${comp?lab.map((n,i)=>n+' '+pct(comp[i],0)).join(', '):'n/a'}.`:''}
+Coach's opponent estimate: ${A.paramLabel} ${pct(A.belief.mean,0)} (80% ${pct(A.belief.lo,0)}-${pct(A.belief.hi,0)}); decision switches at ${pct(A.flip,1)}; opponent-specific best: ${A.best}. ${A.beliefSource}
+GTO reference: ${A.gto.available?`equilibrium for hero's hand ${Object.entries(A.gto.freq).map(([a,f])=>a+' '+pct(f,0)).join(', ')} (restricted river tree)`:'unavailable for this spot'}.
+
+PLAYER'S ANSWERS
+${g?`Range selected: ${top}. Flagged by the coach as impossible: ${g.cat.impossible.map(k=>CLASS_LABELS[k]).join(' ')||'none'}; questionable: ${g.cat.questionable.map(k=>CLASS_LABELS[k]).join(' ')||'none'}; overlap with best plausible range ${pct(g.credit,0)}.
+Range explanation: "${(rr.text||'').slice(0,600)}"`:''}
+${pr?`Play: ${pr.ans.action}${pr.ans.size?' '+pr.ans.size:''}; estimate ${pr.ans.estimate}%; reasoning: "${(pr.ans.reason||'').slice(0,600)}"`:''}`;
+}
+function finishReview(drills){
+  S.reviews++;S.pending=null;save();UI.review=null;
+  if(drills)startDrills(true);else dealHand();
+}
+
+/* ---------- skills & queue ---------- */
+function recordSkill(skill,ok,R,answer){
+  const st=S.skills[skill];st.att++;if(!ok)st.miss++;st.recent.push(ok?1:0);st.recent=st.recent.slice(-12);
+  const id=`${R.rec.tableId}:${R.rec.hand}:${R.k}:${skill}`;let it=S.queue.find(x=>x.id===id);
+  if(!it){it={id,skill,tableId:R.rec.tableId,hand:R.rec.hand,k:R.k,villain:R.villain,created:Date.now()};S.queue.push(it);}
+  it.answer=answer;it.question=(R.questions.find(q=>q.skills.includes(skill))||{}).title;schedule(it,ok,S.handNo);
+  if(S.queue.length>200)S.queue=S.queue.slice(-200);save();
+}
+
+/* ---------- drills (due reviews with new numbers or cards) ---------- */
+function startDrills(thenDeal){
+  const due=dueItems().sort((a,b)=>a.due-b.due).slice(0,2);
+  if(!due.length){if(thenDeal)dealHand();return;}
+  clearTimer();UI.mode='drill';UI.drills={items:due,i:0,thenDeal,cur:null,res:null};render();
+}
+function renderDrill(){
+  const el=$('#coach'),D=UI.drills,it=D.items[D.i];
+  if(!it){el.innerHTML=`<h2>Due reviews done</h2><p class="sub">Each skill's next due time moved: further out after a success, sooner after a miss.</p><div class="rowbtns"><button class="go" id="dn">Deal the next hand</button></div>`;$('#dn').onclick=()=>{UI.drills=null;dealHand();};return;}
+  if(!D.cur){try{D.cur=makeDrill(it,HANDS.filter(h=>h.tableId===it.tableId));}catch(e){console.error(e);D.cur=makeDrill({...it,skill:'play'},[]);}D.res=null;D.state=null;}
+  const d=D.cur;let h=`<h2>${esc(SKILLS[it.skill])}: due review</h2><p class="sub">${esc(d.title)} · ${D.i+1} of ${D.items.length} · originally from hand #${it.hand}</p>`;
+  if(d.kind==='potprice'){
+    h+=`<div class="histline">${d.lines.map(l=>l.deal?`<div class="st">${esc(l.text)}</div>`:`<div>${esc(l.text)}</div>`).join('')}</div><p class="sub">You hold ${cardsXS(d.hole)}. The pot readout is hidden.</p>
+      <form class="qcard" id="df">${d.fields.map(f=>`<label for="d_${f.id}">${esc(f.label)}</label><div class="inrow"><input type="number" step="any" id="d_${f.id}" ${D.res?'disabled':''} value="${D.res?esc(D.res.fields[f.id].v):''}"><span>${f.unit}</span></div>`).join('')}${D.res?'':'<button class="go">Check</button>'}</form>`;
+    if(D.res){const ok=Object.values(D.res.fields).every(x=>x.ok);h+=`<div class="fb ${ok?'ok':'no'}">${verdict(ok,'Correct','Not quite')}${d.fields.map(f=>`<div style="font:500 15px var(--f-num)">${esc(f.label)} <b>${fmt(f.ans)}${f.unit==='%'?'%':''}</b> ${D.res.fields[f.id].ok?'✓':'✗'}</div>`).join('')}</div>`;}
+  }else if(d.kind==='range'){
+    h+=`<p class="sub">Your new hand ${cardsXS(d.hole)}${d.board.length?' · board '+cardsXS(d.board):''}</p><div class="qcard"><p style="margin:0;font:600 17px/1.3 var(--f-num)">${esc(d.q.prompt)}</p><p class="sub">${esc(d.q.lessPrompt)} Use the ↓ brush.</p><div id="gridHost"></div>${D.res?'':'<button class="go" id="dgo">Submit</button>'}</div>`;
+    if(D.res)h+=rangeFeedback(d.R,d.q,D.res);
+  }else{
+    h+=`<div class="qcard"><p style="margin:0 0 8px">${esc(d.text)}</p><div class="choice" id="dch">${['call','fold'].map(o=>`<button type="button" data-o="${o}" class="${D.state&&D.state.action===o?'on':''}" ${D.res?'disabled':''}>${o}</button>`).join('')}</div>
+      <label for="dev">EV of calling relative to folding</label><div class="inrow"><input type="number" step="any" id="dev" ${D.res?'disabled':''} value="${D.res?esc(D.state.ev):''}"><span>chips</span></div>${D.res?'':'<button class="go" id="dgo">Check</button>'}</div>`;
+    if(D.res){const r=D.res;h+=`<div class="fb ${r.ok?'ok':'no'}">${verdict(r.ok,'Correct','Not quite')}<div class="calc">${d.viaBeta?`Share of bets that are bluffs = ${pct(d.beta,0)}×${pct(1-d.V,0)} ÷ (${pct(d.V,0)} + ${pct(d.beta,0)}×${pct(1-d.V,0)}) = <b>${pct(d.share,1)}</b>. `:''}EV(call) = ${pct(d.share,1)} × ${d.P+d.b} − ${pct(1-d.share,1)} × ${d.b} = <b>${sgn(d.ev)}</b> chips → <b>${r.best}</b>. Break-even bluff share = ${d.b} ÷ ${d.P+2*d.b} = ${pct(r.be,1)}.</div></div>`;}
+  }
+  if(D.res)h+=`<div class="rowbtns"><button class="go" id="dnext">${D.i+1<D.items.length?'Next due review':'Finish'}</button></div>`;
+  el.innerHTML=h;
+  if(d.kind==='potprice'&&!D.res)$('#df').onsubmit=e=>{e.preventDefault();const res={fields:{}};let okPot=true,okPrice=true;
+    for(const f of d.fields){const v=parseFloat($('#d_'+f.id).value),ok=!isNaN(v)&&Math.abs(v-f.ans)<=f.tol;res.fields[f.id]={v,ok};if(f.skill==='pot')okPot=okPot&&ok;else okPrice=okPrice&&ok;}
+    D.res=res;drillDone(it,it.skill==='pot'?okPot:okPrice);};
+  if(d.kind==='range'){const G2=makeGrid($('#gridHost'),{blk:d.R.model.blk,editable:!D.res,down:true,init:D.res?D.res.user:null,initDown:D.res?D.res.down:null,heat:D.res?D.res.g.T.rel:null});
+    if(!D.res)$('#dgo').onclick=()=>{const u=G2.weights(),dn=G2.downs();if(u.every(x=>x===0)){toast('Select some hands first.');return;}const g=gradeRange(d.R,d.q,u,dn);D.res={user:Array.from(u),down:Array.from(dn),g,text:''};drillDone(it,g.ok);};}
+  if(d.kind==='play'&&!D.res){D.state=D.state||{};el.querySelectorAll('#dch button').forEach(b=>b.onclick=()=>{D.state.action=b.dataset.o;el.querySelectorAll('#dch button').forEach(x=>x.classList.toggle('on',x===b));});
+    $('#dgo').onclick=()=>{D.state.ev=$('#dev').value;if(!D.state.action){toast('Choose call or fold.');return;}const r=gradeDrillPlay(d,D.state);D.res=r;drillDone(it,r.ok);};}
+  if(D.res)$('#dnext').onclick=()=>{D.i++;D.cur=null;D.res=null;render();};
+}
+function drillDone(it,ok){const st=S.skills[it.skill];st.att++;if(!ok)st.miss++;st.recent.push(ok?1:0);st.recent=st.recent.slice(-12);schedule(it,ok,S.handNo);save();render();}
+
+/* ---------- range grid widget ---------- */
+function makeGrid(host,o){
+  const P=classStats(new Float64Array(NC).fill(1),o.blk);
+  const w=new Float64Array(169),down=new Uint8Array(169);if(o.init)o.init.forEach((v,k)=>w[k]=v);if(o.initDown)o.initDown.forEach((v,k)=>down[k]=v);
+  let brush=1,painting=false,paintVal=null;
+  const tools=o.editable?`<div class="tools">${[[1,'100%'],[0.5,'50%'],[0.25,'25%'],[0,'Erase']].map(([v,l])=>`<button type="button" data-b="${v}" class="${v===1?'on':''}">${l}</button>`).join('')}${o.down?'<button type="button" data-b="down">↓ less likely</button>':''}
+    <button type="button" data-q="pairs">Pairs</button><button type="button" data-q="ax">Suited aces</button><button type="button" data-q="bw">Broadways</button><button type="button" data-q="sc">Suited connectors</button><button type="button" data-q="clear">Clear</button></div>`:'';
+  host.innerHTML=`<div class="gridwrap">${tools}<div class="grid" role="grid" aria-label="Starting hand grid">${CLASS_LABELS.map((l,k)=>{const i=Math.floor(k/13),j=k%13;return`<button type="button" class="cell ${i===j?'pr':i<j?'su':''} ${P.avail[k]===0?'blk':''}" data-k="${k}" title="${l}: ${P.avail[k]} combos available"><span class="fill"></span><span>${l}</span></button>`;}).join('')}</div><div class="legend" id="glg"></div></div>`;
+  const cells=host.querySelectorAll('.cell');
+  const paint=()=>{let comb=0;cells.forEach((c,k)=>{const f=c.firstChild;
+      if(o.heat){const v=o.heat[k];f.style.opacity=(v*0.92).toFixed(2);c.classList.add('heat');c.classList.toggle('sel',v>0.45);c.classList.toggle('ring',w[k]>0);}
+      else{f.style.opacity=w[k]?(0.25+0.75*w[k]).toFixed(2):0;c.classList.toggle('sel',w[k]>=0.5);}
+      c.classList.toggle('down',!!down[k]);comb+=w[k]*P.avail[k];});
+    const lg=host.querySelector('#glg');if(lg)lg.textContent=o.heat?'Darker = more of his range. Red outline = your selection.':`Selected: ${fmt(comb)} combos (${pct(comb/Math.max(1,NC-sum(o.blk)),1)} of hands still possible). Visible cards remove combos; hatched cells have none left.`;
+    if(o.onChange)o.onChange({w:Array.from(w)});};
+  const apply=(k,first)=>{if(brush==='down'){if(first)paintVal=down[k]?0:1;down[k]=paintVal;}else{if(first)paintVal=w[k]===brush?0:brush;w[k]=paintVal;}paint();};
+  if(o.editable){
+    host.querySelector('.grid').addEventListener('pointerdown',e=>{const c=e.target.closest('.cell');if(!c)return;e.preventDefault();painting=true;apply(+c.dataset.k,true);});
+    host.querySelector('.grid').addEventListener('pointerover',e=>{if(!painting)return;const c=e.target.closest('.cell');if(c)apply(+c.dataset.k,false);});
+    window.addEventListener('pointerup',()=>{painting=false;});
+    host.querySelector('.grid').addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){const c=e.target.closest('.cell');if(c){e.preventDefault();apply(+c.dataset.k,true);}}});
+    host.querySelectorAll('.tools [data-b]').forEach(b=>b.onclick=()=>{brush=b.dataset.b==='down'?'down':+b.dataset.b;host.querySelectorAll('.tools [data-b]').forEach(x=>x.classList.toggle('on',x===b));});
+    host.querySelectorAll('.tools [data-q]').forEach(b=>b.onclick=()=>{const q=b.dataset.q,v=brush==='down'?1:brush;
+      for(let k=0;k<169;k++){const i=Math.floor(k/13),j=k%13,hi=12-Math.min(i,j),lo=12-Math.max(i,j);
+        const m=q==='clear'?true:q==='pairs'?i===j:q==='ax'?(i===0&&j>0):q==='bw'?(hi>=8&&lo>=8):q==='sc'?(i<j&&hi-lo<=2&&lo>=2):false;
+        if(m){if(q==='clear'){w[k]=0;down[k]=0;}else w[k]=v;}}paint();});
+  }
+  paint();
+  return{weights:()=>Float64Array.from(w),downs:()=>Uint8Array.from(down)};
+}
+
+/* ---------- your data: backup, restore, erase ---------- */
+function storageText(){
+  const n=HANDS.length,j=(S.journal||[]).length;
+  const where=DB?'your Claude account (synced wherever you open this page on claude.ai)':IDB_OK?'this browser on this site (IndexedDB; no limit on hands)':'this browser, recent hands only (IndexedDB is unavailable here)';
+  return`${n} hand${n===1?'':'s'} and ${j} review${j===1?'':'s'} are saved in ${where}. A backup file moves everything to another browser, device or copy of the app.`;
+}
+const backupJSON=()=>JSON.stringify({app:'rewind-poker',version:1,exportedAt:new Date().toISOString(),S,hands:HANDS});
+let DL=null;cap('downloads').then(x=>{DL=x;});
+async function downloadBackup(){
+  const name=`rewind-poker-backup-${new Date().toISOString().slice(0,10)}.json`,json=backupJSON();
+  if(DL){try{const r=await DL.save({filename:name,data:new Blob([json])});if(r&&r.status==='saved')toast('Backup saved.');}
+    catch(e){toast(e&&e.code==='declined'?'Download cancelled.':e&&e.code==='host_unavailable'?'This app cannot save files; open the page in a browser, or use Copy backup.':'The download did not go through; use Copy backup instead.');}return;}
+  try{const blob=new Blob([json],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;
+    document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},1500);toast('Backup downloaded (if nothing appears, use Copy backup).');}
+  catch(e){toast('This browser blocked the download; use Copy backup instead.');}
+}
+async function copyBackup(){try{await navigator.clipboard.writeText(backupJSON());toast('Backup copied. Paste it into a .json file to keep it.');}catch(e){toast('Copying was blocked by the browser.');}}
+function importBackup(file){
+  const fr=new FileReader();
+  fr.onload=()=>{let d;try{d=JSON.parse(fr.result);if(d.app!=='rewind-poker'||!d.S||!Array.isArray(d.hands))throw 0;}catch(e){toast('That file is not a Rewind backup.');return;}
+    confirmBox(`Replace the data here with this backup from ${String(d.exportedAt||'').slice(0,10)||'an earlier session'}: ${d.hands.length} hands and ${(d.S.journal||[]).length} reviews?`,'Restore backup',async()=>{
+      clearTimer();
+      Object.assign(S,JSON.parse(JSON.stringify(d.S)));if(!Array.isArray(S.journal))S.journal=[];
+      HANDS=[];mergeHands(d.hands);await IDB.clear();HANDS.forEach(saveHand);save();G=null;hydrate();UI.mode='idle';UI.review=null;UI.drills=null;render();toast(`Restored ${HANDS.length} hands.`);});};
+  fr.readAsText(file);
+}
+function confirmBox(msg,label,onYes){
+  const ov=$('#overlay');ov.innerHTML=`<div class="overlay"><div class="modal" role="dialog" aria-modal="true"><h2 style="font-size:24px">Are you sure?</h2><p></p><div class="rowbtns"><button class="go" id="cfYes"></button><button class="ghost" id="cfNo">Cancel</button></div></div></div>`;
+  ov.querySelector('p').textContent=msg;$('#cfYes').textContent=label;$('#cfNo').onclick=()=>{ov.innerHTML='';};$('#cfYes').onclick=()=>{ov.innerHTML='';onYes();};
+}
+async function eraseAll(){
+  clearTimer();try{localStorage.removeItem(LS);}catch(e){}await IDB.clear();
+  if(DB&&UID){try{const q=await DB.collection('data/users/'+UID).get();for(const d of q.docs){await DB.collection('data/users/'+UID).doc(d.id).delete();}}catch(e){}}
+  HANDS=[];S.queue=[];S.deferred=[];S.journal=[];S.reviews=0;S.pending=null;for(const k in S.skills)S.skills[k]={att:0,miss:0,recent:[]};
+  newTable();hydrate();UI.mode='idle';UI.review=null;UI.drills=null;render();toast('All saved data erased. New table ready.');
+}
+
+/* ---------- the You tab: what your saved play says ---------- */
+function renderYou(p){
+  const hs=HANDS,n=hs.length;
+  if(!n){p.innerHTML='<p class="muted">Play a few hands: your results, habits and review journal build up here and stay between visits.</p>';return;}
+  const o=observe('You',hs,{classify:false}),net=hs.reduce((a,r)=>a+(r.result.net[0]||0),0);
+  const byPos={};for(const r of hs){const ps=r.players[0].pos;const b=byPos[ps]=byPos[ps]||{n:0,net:0};b.n++;b.net+=r.result.net[0]||0;}
+  let sdWon=0,sd=0;for(const r of hs){if(r.result.type!=='showdown'||!r.log.some(e=>e.seat===0)||r.log.some(e=>e.seat===0&&e.type==='fold'))continue;sd++;if(r.result.pots.some(pt=>pt.winners.includes(0)))sdWon++;}
+  const rp=(a,b)=>b?Math.round(100*a/b)+'%':'–';
+  let h=`<h3 class="sec">Results</h3><div class="hud"><div class="stats"><div>${n}<small>Hands</small></div><div class="${net>0?'net pos':net<0?'net neg':''}">${net>0?'+':''}${net}<small>Chips</small></div><div>${(net/BB_AMT/n*100).toFixed(0)}<small>bb/100</small></div><div>${rp(o.vpip,n)}<small>VPIP</small></div><div>${rp(o.pfr,n)}<small>PFR</small></div></div>
+    <div class="stats" style="margin-top:8px"><div>${o.calls?(o.bets/o.calls).toFixed(1):o.bets?'∞':'–'}<small>Aggr.</small></div><div>${rp(o.folds,o.faced)}<small>Fold to bet</small></div><div>${rp(o.wtsd,o.sawFlop)}<small>Showdown</small></div><div>${rp(sdWon,sd)}<small>Won at SD</small></div><div>${o.sawFlop}<small>Flops</small></div></div>
+    <p class="muted" style="font-size:14px;margin:8px 0 0">Results swing a lot over a few hundred hands; your review record below says more about your decisions.</p></div>`;
+  h+=`<h3 class="sec">By position</h3>${PRE_ORDER.map(ps=>{const b=byPos[ps];if(!b)return'';return`<div class="skillrow"><div>${ps}<div class="muted">${b.n} hands</div></div><div class="${b.net>0?'net pos':b.net<0?'net neg':''}" style="text-align:right">${b.net>0?'+':''}${b.net} chips<div class="muted">${(b.net/BB_AMT/b.n*100).toFixed(0)} bb/100</div></div></div>`;}).join('')}`;
+  const J=S.journal||[];
+  if(J.length){
+    const rate=(arr,f)=>{const xs=arr.map(f).filter(x=>x!=null);return xs.length?{r:xs.filter(Boolean).length/xs.length,n:xs.length}:null;};
+    const last=J.slice(-10),prev=J.slice(-20,-10);
+    const rows=[['Count the pot',j=>j.pot],['Calculate the price',j=>j.price],['Infer a range',j=>j.range?j.range.ok:null],['Choose and defend a play',j=>j.play?j.play.ok:null]];
+    h+=`<h3 class="sec">Review record</h3>${rows.map(([l,f])=>{const a=rate(last,f),b=rate(prev,f);if(!a)return'';const d=b?a.r-b.r:null;
+      return`<div class="skillrow"><div>${l}<div class="muted">last ${a.n}: ${pct(a.r,0)}${b?` · before that ${pct(b.r,0)}`:''}</div></div><div style="text-align:right;font:600 15px var(--f-num)">${d==null?'':d>0.05?'improving':d<-0.05?'slipping':'steady'}</div></div>`;}).join('')}`;
+    const habits=[];const slips=J.filter(j=>j.slip).length;if(slips)habits.push(`${slips}× divided by the pot <i>before</i> the call when working out break-even.`);
+    const imp=J.reduce((a,j)=>a+(j.range?j.range.imp:0),0);if(imp)habits.push(`${imp} impossible hand${imp===1?'':'s'} picked in range reads (check the cards you can see).`);
+    const qn=J.reduce((a,j)=>a+(j.range?j.range.q:0),0);if(qn>=3)habits.push(`${qn} hands picked that no player type would play that way.`);
+    const inc=J.filter(j=>j.play&&j.play.consistent===false).length;if(inc)habits.push(`${inc}× chose an action that your own estimate did not support.`);
+    const bySpot={};for(const j of J)if(j.play){const k=(j.spot.startsWith('pre')||j.spot==='rfi'?'Preflop':STREETS[j.street][0].toUpperCase()+STREETS[j.street].slice(1))+(j.spot.endsWith('facing')?', facing a bet':j.spot==='rfi'?', first in':', no bet to you');const b=bySpot[k]=bySpot[k]||{n:0,ok:0};b.n++;if(j.play.ok)b.ok++;}
+    const weak=Object.entries(bySpot).filter(([,b])=>b.n>=2&&b.ok/b.n<0.5).sort((a,b)=>a[1].ok/a[1].n-b[1].ok/b[1].n);
+    weak.forEach(([k,b])=>habits.push(`${k}: ${b.ok} of ${b.n} plays were defensible.`));
+    h+=`<h3 class="sec">Recurring mistakes</h3>${habits.length?`<ul style="margin:0;padding-left:18px;font:500 15px/1.45 var(--f-num)">${habits.map(x=>`<li>${x}</li>`).join('')}</ul>`:'<p class="muted">Nothing repeats yet. Patterns show up after a few reviews.</p>'}`;
+    h+=`<h3 class="sec">Review journal</h3>${J.slice().reverse().slice(0,40).map((j,i)=>{const r=HANDS.find(x=>x.tableId===j.tableId&&x.hand===j.hand);
+      const marks=[j.pot!=null?`pot ${j.pot?'✓':'✗'}`:'',j.price!=null?`price ${j.price?'✓':'✗'}`:'',j.range?`range ${pct(j.range.credit,0)}`:'',j.play?`${j.play.action} ${j.play.ok?'✓':'✗'}`:''].filter(Boolean).join(' · ');
+      return`<details class="handrow"><summary>${new Date(j.at).toLocaleDateString(undefined,{month:'short',day:'numeric'})} · #${j.hand} ${STREETS[j.street]} ${cardsXS(j.hole)} <span class="muted" style="margin-left:auto">${esc(marks)}</span></summary>
+        <p style="font:500 15px/1.45 var(--f-num);margin:6px 0">${j.board&&j.board.length?cardsXS(j.board)+' · ':''}${j.pos}${j.vname?' vs '+esc(j.vname):''}${j.play?` · you chose ${esc(j.play.action)}${j.play.size?' '+esc(j.play.size):''} at ${esc(j.play.est)}%; best vs him: ${esc(j.play.best)}`:''}</p>
+        <p class="muted" style="font-size:15px;margin:4px 0 8px">${esc(j.takeaway)}</p>${r?`<button class="btn2" data-jh="${j.hand}" data-jt="${esc(j.tableId)}" data-jk="${j.k}">Review it again</button>`:''}</details>`;}).join('')}`;
+  }else h+=`<h3 class="sec">Review record</h3><p class="muted">Your first review starts the journal: every answer, the right numbers and the takeaway are kept here.</p>`;
+  p.innerHTML=h;
+  p.querySelectorAll('button[data-jh]').forEach(b=>b.onclick=()=>{if(G&&!G.over&&UI.mode==='play'){toast('Finish the current hand first.');return;}const r=HANDS.find(x=>x.tableId===b.dataset.jt&&x.hand===+b.dataset.jh);if(r)startReview(r,+b.dataset.jk,false);});
+}
+
+/* ---------- misc ---------- */
+function toast(msg){clearTimeout(UI.toastT);let t=$('.toast');if(!t){t=document.createElement('div');t.className='toast';document.body.appendChild(t);}t.textContent=msg;t.hidden=false;UI.toastT=setTimeout(()=>{t.hidden=true;},2600);}
+function renderHeader(){
+  const hs=tableHands(),net=hs.reduce((a,r)=>a+(r.result.net[0]||0),0);
+  const block=hs.filter(r=>r.hand>S.blockStart).length;
+  $('#status').textContent=S.tableId?`Hand #${G&&G.handNo||S.handNo} · blinds 1/2 · review every ${S.settings.interval} hand${S.settings.interval>1?'s':''}${UI.mode==='play'||UI.mode==='between'?` (${Math.max(0,S.settings.interval-block)} to go)`:''}`:'';
+  const np=$('#netPill');np.textContent=`Session ${net>0?'+':''}${net} chips`;np.className='pill net '+(net>0?'pos':net<0?'neg':'');
+  const due=dueItems().length,dp=$('#duePill');dp.hidden=!due;dp.textContent=`${due} due review${due===1?'':'s'}`;
+  dp.onclick=()=>{if(G&&!G.over&&UI.mode==='play'){toast('Finish the current hand first.');return;}if(UI.mode==='review'){toast('Finish this review first.');return;}startDrills(false);};
+}
+function render(){
+  $('#app').classList.toggle('reviewing',UI.mode==='review'||UI.mode==='drill');
+  renderHeader();renderTable();renderActionBar();renderSide();
+}
+function welcome(saved){
+  const ov=$('#overlay');
+  const due=dueItems().length;
+  ov.innerHTML=`<div class="overlay"><div class="modal"><h2>${saved?'Welcome back':'Sit down at a six-handed table'}</h2>
+    <p>${saved?`Your table, ${tableHands().length} saved hand${tableHands().length===1?'':'s'} and ${due} due review${due===1?'':'s'} are here.`:'Blinds 1/2, 200-chip stacks, five opponents with their own tendencies. You play a couple of hands, then the coach rewinds to one decision and asks two or three short questions.'}</p>
+    <p class="sub">Keys: F fold · C check or call · R bet or raise. Flag any decision with one click.</p>
+    <div class="rowbtns"><button class="go" id="wGo">${saved?'Continue':'Sit down'}</button>${due?'<button class="ghost" id="wDue">Do due reviews first</button>':''}</div></div></div>`;
+  $('#wGo').onclick=()=>{ov.innerHTML='';if(S.pending){const p=S.pending;const r=HANDS.find(x=>x.tableId===p.tableId&&x.hand===p.hand);if(r){startReview(r,p.k,false);return;}}dealHand();};
+  if($('#wDue'))$('#wDue').onclick=()=>{ov.innerHTML='';startDrills(false);};
+}
+async function boot(){
+  const ls=lsLoad();if(ls&&ls.S){Object.assign(S,ls.S);HANDS=ls.H||[];}
+  $('#overlay').innerHTML=`<div class="overlay"><div class="modal"><h2>Loading your table…</h2><p class="sub">Checking for saved hands and due reviews.</p></div></div>`;
+  let done=false;const fin=()=>{if(done)return;done=true;BOOTED=true;if(!S.tableId)newTable();hydrate();UI.mode='idle';render();welcome(tableHands().length>0||S.queue.length>0);};
+  setTimeout(fin,6000);
+  try{mergeHands(await IDB.all());}catch(e){}
+  try{await initStore();}catch(e){}
+  fin();
+}
+window.addEventListener('resize',()=>{});
+function autoplay(n){ // test helper: the hero is played by the solid-regular model, instantly
+  if(!G)hydrate();
+  for(let t=0;t<n;t++){G.startHand();
+    while(!G.over){const s=G.actor;
+      if(G.s[s].isHero){const snap=G.heroSnapshot(s);G.heroDecisions.push(snap);const a=G.botDecide(s);G.decisions.pop();const n0=G.log.length;G.act(s,a.type,a.to);const e=G.log[n0];snap.action={type:e.type,to:e.to,amount:e.amount};}
+      else{const a=G.botDecide(s);G.act(s,a.type,a.to);}}
+    const rec=makeRecord(G,0);rec.tableId=S.tableId;for(let s=1;s<6;s++){const ll=handLL(rec,s);if(ll)rec.ll[rec.players[s].name]=ll;}HANDS.push(rec);saveHand(rec);}
+  S.players.forEach((p,i)=>p.stack=G.players[i].stack);S.button=G.button;S.handNo=G.handNo;S.blockStart=G.handNo;save();render();
+}
+window.__rewind={S,UI,autoplay,get G(){return G;},get HANDS(){return HANDS;},dealHand,heroAct,startReview,startDrills,render};
+boot();
+}
+
+</script>
+</body></html>
