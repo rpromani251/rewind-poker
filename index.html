@@ -267,6 +267,9 @@ table.mini th,table.mini td{border:1px solid var(--pline);padding:5px 9px;text-a
 .r-life{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px}
 .r-life>div{background:#f4f2ea;border-radius:10px;padding:10px 12px}.r-life b{display:block;font:700 22px var(--f-num)}.r-life small{color:var(--pmute);font-size:13.5px}
 .r-life b.pos{color:var(--good)}.r-life b.neg{color:var(--bad)}
+.cloffer{border:1px dashed var(--pline);border-radius:10px;padding:10px 12px;margin-top:12px;background:#fbfaf6}.cloffer .v{font:700 15px var(--f-num)}
+.cloffer textarea{width:100%;font:15px var(--f-body,inherit);border:1px solid var(--pline);border-radius:8px;padding:8px;margin-bottom:6px}
+.cloffer select,.side select#apiModel{font:14px inherit;padding:4px 6px;border-radius:6px}
 
 </style></head><body>
 <div class="app" id="app">
@@ -1645,6 +1648,8 @@ function renderProgress(p){
     <label class="field" style="gap:10px"><input type="checkbox" id="vp" ${S.settings.vpipOnly!==false?'checked':''} style="width:20px;height:20px"> Review only hands I played (called or raised preflop), plus flagged decisions</label>
     <div class="field"><label for="sp">Opponent speed</label><select id="sp"><option value="normal" ${S.settings.speed==='normal'?'selected':''}>Normal</option><option value="fast" ${S.settings.speed==='fast'?'selected':''}>Fast</option></select></div>
     <div class="rowbtns"><button class="btn2" id="newT">End session and start a new table</button></div><p class="muted" style="font-size:14px;margin:4px 0 0">Your hands, reviews and skills are kept; you get five new opponents and fresh stacks.</p>
+    <h3 class="sec">Claude on this site</h3><p class="muted" style="font-size:15px">Inside claude.ai, Claude's written assessment runs automatically. Elsewhere (GitHub Pages, your own computer) it can use your own Anthropic API key, kept only in this browser, or you can send the prompt to the Claude app with one click from each review.</p>
+    <div class="rowbtns" style="align-items:center">${apiKey()?`<span class="muted">Key saved (…${esc(apiKey().slice(-4))}) ·</span><select id="apiModel">${Object.entries(API_MODELS).map(([k,l])=>`<option value="${k}"${k===apiModel()?' selected':''}>${l}</option>`).join('')}</select><button class="btn2" id="apiDel">Remove key</button>`:'<span class="muted">No API key saved in this browser.</span>'}</div>
     <h3 class="sec">Your data</h3><p class="muted" style="font-size:15px">${esc(storageText())}</p>
     <div class="rowbtns"><button class="btn2" id="bkDl">Download backup</button><button class="btn2" id="bkCp">Copy backup</button><label class="btn2" style="display:inline-flex;align-items:center;cursor:pointer">Restore from backup<input type="file" id="bkIn" accept=".json,application/json" hidden></label></div>
     <div class="rowbtns"><button class="btn2" id="wipe" style="border-color:#5a2a25;color:#ffb3aa">Erase all saved data</button></div>
@@ -1653,6 +1658,8 @@ function renderProgress(p){
   $('#iv').onchange=e=>{S.settings.interval=+e.target.value;save();};
   $('#sp').onchange=e=>{S.settings.speed=e.target.value;save();};
   $('#vp').onchange=e=>{S.settings.vpipOnly=e.target.checked;save();};
+  if($('#apiDel'))$('#apiDel').onclick=()=>{lsSet(AKEY,'');toast('API key removed from this browser.');render();};
+  if($('#apiModel'))$('#apiModel').onchange=e=>{lsSet(AMODEL,e.target.value);toast('Model saved.');};
   $('#bkDl').onclick=downloadBackup;$('#bkCp').onclick=copyBackup;$('#bkIn').onchange=e=>{const f=e.target.files[0];if(f)importBackup(f);e.target.value='';};
   $('#wipe').onclick=()=>confirmBox('Erase every saved hand, review and skill record on this device'+(DB?' and in your Claude account':'')+'? This cannot be undone.','Erase everything',eraseAll);
   $('#newT').onclick=()=>sessionModal();
@@ -1890,14 +1897,58 @@ function wireAdj(R,A){
       r.value=Math.round(s*100);out();};
     b.oninput=up;$('#betaV').textContent=pct(+b.value/100,0);}
 }
+/* ---------- Claude's written assessment: claude.ai capability, your own API key, or copy to the Claude app ---------- */
+const AKEY='rewind-anthropic-key',AMODEL='rewind-anthropic-model';
+const API_MODELS={'claude-sonnet-5-5':'Sonnet 5.5 (about 1¢ per review)','claude-haiku-5-5':'Haiku 5.5 (about 0.1¢ per review)'};
+const lsGet=k=>{try{return localStorage.getItem(k)||'';}catch(e){return'';}},lsSet=(k,v)=>{try{v?localStorage.setItem(k,v):localStorage.removeItem(k);}catch(e){}};
+const apiKey=()=>lsGet(AKEY),apiModel=()=>API_MODELS[lsGet(AMODEL)]?lsGet(AMODEL):'claude-sonnet-5-5';
+async function callClaudeAPI(prompt){
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'x-api-key':apiKey(),'anthropic-version':'2023-06-01','content-type':'application/json','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:apiModel(),max_tokens:600,messages:[{role:'user',content:prompt}]})});
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error((j.error&&j.error.message)||('HTTP '+r.status));
+  return(j.content||[]).filter(c=>c.type==='text').map(c=>c.text).join('\n').trim();
+}
+function keepClaude(R,text,via){
+  R.claude=text;R.claudeVia=via;
+  const j=(S.journal||[]).slice().reverse().find(x=>x.tableId===R.rec.tableId&&x.hand===R.rec.hand&&x.k===R.k);if(j){j.claude=text.slice(0,2000);save();}
+}
+function showClaude(R){const b=$('#claudeBox');if(!b)return;
+  b.innerHTML=`<p class="sub" style="margin:10px 0 0">Claude's assessment (uses only what you knew at the time)${R.claudeVia?' · '+esc(R.claudeVia):''}:</p><div class="cl"></div>`;b.querySelector('.cl').textContent=R.claude;}
 async function askClaude(R,A){
   const box=$('#claudeBox');if(!box)return;
   const rr=R.results.range,pr=R.results.play;if(!(rr&&rr.text&&rr.text.trim())&&!(pr&&pr.ans.reason&&pr.ans.reason.trim()))return;
-  const sample=await cap('sample');if(!sample||!$('#claudeBox'))return;
-  if(R.claude){box.innerHTML=`<div class="cl">${esc(R.claude)}</div>`;return;}
-  box.innerHTML=`<div class="cl sub">Claude is assessing your reasoning…</div>`;
-  try{const r=await sample(claudePrompt(R,A),{modelTier:'default'});R.claude=(r&&r.text||'').trim();if($('#claudeBox'))$('#claudeBox').innerHTML=R.claude?`<p class="sub" style="margin:10px 0 0">Claude's assessment (uses only what you knew at the time):</p><div class="cl"></div>`:'';const c=$('#claudeBox .cl');if(c)c.textContent=R.claude;}
-  catch(e){if($('#claudeBox'))$('#claudeBox').innerHTML=e&&e.code==='not_granted'?'':`<p class="sub">Claude's written assessment isn't available right now; the checks above still apply.</p>`;}
+  if(R.claude){showClaude(R);return;}
+  const sample=await cap('sample');if(!$('#claudeBox'))return;
+  if(sample){
+    box.innerHTML=`<div class="cl sub">Claude is assessing your reasoning…</div>`;
+    try{const r=await sample(claudePrompt(R,A),{modelTier:'default'});const t=(r&&r.text||'').trim();if(t){keepClaude(R,t,'');showClaude(R);}else box.innerHTML='';}
+    catch(e){if($('#claudeBox'))$('#claudeBox').innerHTML=e&&e.code==='not_granted'?'':`<p class="sub">Claude's written assessment isn't available right now; the checks above still apply.</p>`;}
+    return;}
+  if(apiKey())return askClaudeAPI(R,A);
+  claudeOffer(R,A);
+}
+async function askClaudeAPI(R,A){
+  const box=$('#claudeBox');if(!box)return;box.innerHTML=`<div class="cl sub">Claude is assessing your reasoning…</div>`;
+  try{const t=await callClaudeAPI(claudePrompt(R,A));if(!t)throw new Error('empty reply');keepClaude(R,t,'your API key, '+API_MODELS[apiModel()].split(' (')[0]);showClaude(R);}
+  catch(e){claudeOffer(R,A,`Claude didn't answer: ${e.message||e}. Check the key in Progress → Claude on this site, or use the Claude app below.`);}
+}
+function claudeOffer(R,A,err){
+  const box=$('#claudeBox');if(!box)return;const prompt=claudePrompt(R,A);
+  box.innerHTML=`<div class="cloffer"><div class="v">Get Claude's written assessment</div>
+    ${err?`<p class="sub" style="color:var(--bad)">${esc(err)}</p>`:`<p class="sub">Inside claude.ai this runs automatically. On this site, pick one:</p>`}
+    <div class="rowbtns"><button class="ghost" id="clOpen">Open in the Claude app</button><button class="ghost" id="clCopy">Copy the prompt</button><button class="ghost" id="clKey">${apiKey()?'Change API key':'Use my API key'}</button></div>
+    <div id="clPaste" hidden><p class="sub" style="margin:8px 0 4px">The prompt is copied. Send it in Claude, then paste the reply here to keep it with this review:</p><textarea id="clReply" rows="4" placeholder="Paste Claude's reply"></textarea><button class="ghost" id="clKeep">Keep this reply</button></div>
+    <div id="clKeyForm" hidden><p class="sub" style="margin:8px 0 4px">An Anthropic API key from console.anthropic.com. It is kept only in this browser (not in backups, not on GitHub) and sent only to Anthropic. API use is billed to your Console account, separately from a claude.ai plan.</p>
+      <input id="clKeyIn" type="password" autocomplete="off" placeholder="sk-ant-…" style="width:100%;max-width:420px"> <select id="clModel">${Object.entries(API_MODELS).map(([k,l])=>`<option value="${k}"${k===apiModel()?' selected':''}>${l}</option>`).join('')}</select>
+      <button class="go" id="clSave">Save and ask Claude</button></div></div>`;
+  const copy=async()=>{try{await navigator.clipboard.writeText(prompt);return true;}catch(e){const t=document.createElement('textarea');t.value=prompt;document.body.appendChild(t);t.select();let ok=false;try{ok=document.execCommand('copy');}catch(_){}t.remove();return ok;}};
+  $('#clCopy').onclick=async()=>{const ok=await copy();toast(ok?'Prompt copied. Paste it into Claude.':'Could not copy; select it from the prompt box.');$('#clPaste').hidden=false;};
+  $('#clOpen').onclick=async()=>{await copy();const a=document.createElement('a');a.href='claude://claude.ai/new?q='+encodeURIComponent(prompt.slice(0,13500));document.body.appendChild(a);a.click();a.remove();
+    $('#clPaste').hidden=false;toast('Opening the Claude app with the prompt filled in. It is also copied, in case the app does not open.');};
+  $('#clKey').onclick=()=>{const f=$('#clKeyForm');f.hidden=!f.hidden;if(!f.hidden)$('#clKeyIn').focus();};
+  $('#clSave').onclick=()=>{const k=$('#clKeyIn').value.trim();if(!k&&!apiKey()){toast('Paste a key first.');return;}if(k)lsSet(AKEY,k);lsSet(AMODEL,$('#clModel').value);askClaudeAPI(R,A);};
+  $('#clKeep').onclick=()=>{const t=$('#clReply').value.trim();if(!t){toast('Paste the reply first.');return;}keepClaude(R,t,'pasted from Claude');showClaude(R);};
 }
 function claudePrompt(R,A){
   const s=R.snap,lines=[];for(let k=0;k<s.logLen;k++){const e=R.rec.log[k];if(e.type==='deal'){lines.push(STREETS[e.street]+': '+e.cards.map(cardStr).join(' '));continue;}lines.push(logLine(e,R.rec.players.map((x,i)=>({name:i===0?'You':x.name})))+(e.amount&&e.type!=='raise'?' '+e.amount:''));}
@@ -2126,7 +2177,7 @@ function renderYou(p){
       const marks=[j.pot!=null?`pot ${j.pot?'✓':'✗'}`:'',j.price!=null?`price ${j.price?'✓':'✗'}`:'',j.range?`range ${pct(j.range.credit,0)}`:'',j.play?`${j.play.action} ${j.play.ok?'✓':'✗'}`:''].filter(Boolean).join(' · ');
       return`<details class="handrow"><summary>${new Date(j.at).toLocaleDateString(undefined,{month:'short',day:'numeric'})} · #${j.hand} ${STREETS[j.street]} ${cardsXS(j.hole)} <span class="muted" style="margin-left:auto">${esc(marks)}</span></summary>
         <p style="font:500 15px/1.45 var(--f-num);margin:6px 0">${j.board&&j.board.length?cardsXS(j.board)+' · ':''}${j.pos}${j.vname?' vs '+esc(j.vname):''}${j.play?` · you chose ${esc(j.play.action)}${j.play.size?' '+esc(j.play.size):''} at ${esc(j.play.est)}%; best vs him: ${esc(j.play.best)}`:''}</p>
-        <p class="muted" style="font-size:15px;margin:4px 0 8px">${esc(j.takeaway)}</p>${r?`<button class="btn2" data-jh="${j.hand}" data-jt="${esc(j.tableId)}" data-jk="${j.k}">Review it again</button>`:''}</details>`;}).join('')}`;
+        <p class="muted" style="font-size:15px;margin:4px 0 8px">${esc(j.takeaway)}</p>${j.claude?`<p class="muted" style="font-size:14.5px;margin:0 0 8px;white-space:pre-wrap"><b>Claude:</b> ${esc(j.claude)}</p>`:''}${r?`<button class="btn2" data-jh="${j.hand}" data-jt="${esc(j.tableId)}" data-jk="${j.k}">Review it again</button>`:''}</details>`;}).join('')}`;
   }else h+=`<h3 class="sec">Review record</h3><p class="muted">Your first review starts the journal: every answer, the right numbers and the takeaway are kept here.</p>`;
   p.innerHTML=h;
   p.querySelectorAll('button[data-jh]').forEach(b=>b.onclick=()=>{if(G&&!G.over&&UI.mode==='play'){toast('Finish the current hand first.');return;}const r=HANDS.find(x=>x.tableId===b.dataset.jt&&x.hand===+b.dataset.jh);if(r)startReview(r,+b.dataset.jk,false);});
