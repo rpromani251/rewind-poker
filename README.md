@@ -4,27 +4,6 @@ A poker trainer that runs entirely in your browser. You play six-handed no-limit
 
 It is one file, `index.html`, with no build step and no server code.
 
-## Put it on GitHub Pages
-
-1. Create a new repository on github.com (for example `rewind-poker`).
-2. Upload `index.html` (and this README) to the repository's main branch: **Add file → Upload files → Commit changes**.
-3. Open **Settings → Pages**. Under **Build and deployment**, choose **Deploy from a branch**, then **main** and **/ (root)**, and save.
-4. After a minute or so the site is live at `https://<your-username>.github.io/rewind-poker/`.
-
-On a free plan Pages needs a public repository. GitHub Pro, which comes with the Student Developer Pack, can publish from a private one. Either way the published site is public, but your data is not: it stays in your own browser (see below).
-
-To update the app later, upload a new `index.html` over the old one. Your saved data is not affected.
-
-## Run it locally
-
-Double-click `index.html` to open it in Chrome, Edge, Firefox or Safari. Or, from this folder:
-
-```
-python3 -m http.server 8000
-```
-
-Then open http://localhost:8000.
-
 ## Where your data is saved
 
 - **Every hand you play** (full action history, your cards, cards shown at showdown) is saved in the browser's IndexedDB for that site, with no limit on the number of hands.
@@ -59,8 +38,5 @@ Every other spot shows "GTO reference unavailable" and still covers the pot math
 
 Each opponent is one of four player types (tight-passive, solid regular, loose-aggressive, calling station) with hidden random adjustments. Each bot acts on its own cards and the public action. The coach never sees bot settings, mucked cards or later cards. It infers ranges from the actions you could see, weighting the four types by how well they explain everything you have observed from that player.
 
-## Differences from the claude.ai version
-
-The claude.ai version saves to your Claude account and can add Claude's written assessment of your reasoning. Here, saving is per browser, and the assessment uses the built-in checklist instead.
 
 Keys: **F** fold · **C** check or call · **R** bet or raise.
