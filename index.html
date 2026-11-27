@@ -2088,11 +2088,62 @@ async function copyBackup(){try{await navigator.clipboard.writeText(backupJSON()
 function importBackup(file){
   const fr=new FileReader();
   fr.onload=()=>{let d;try{d=JSON.parse(fr.result);if(d.app!=='rewind-poker'||!d.S||!Array.isArray(d.hands))throw 0;}catch(e){toast('That file is not a Rewind backup.');return;}
-    confirmBox(`Replace the data here with this backup from ${String(d.exportedAt||'').slice(0,10)||'an earlier session'}: ${d.hands.length} hands and ${(d.S.journal||[]).length} reviews?`,'Restore backup',async()=>{
+    const when=String(d.exportedAt||'').slice(0,10)||'an earlier session';
+    const ov=$('#overlay');ov.innerHTML=`<div class="overlay"><div class="modal" role="dialog" aria-modal="true"><h2 style="font-size:24px">Load this backup?</h2>
+      <p>Backup from ${esc(when)}: ${d.hands.length} hands and ${(d.S.journal||[]).length} reviews. Here: ${HANDS.length} hands and ${(S.journal||[]).length} reviews.</p>
+      <p class="muted" style="font-size:15px"><b>Merge</b> keeps everything from both: every hand, review, Claude reply and rating answer, your due reviews and drill progress (the more recent copy of each), and lifetime chips counted once. You stay at the table you have here${HANDS.length?'':' (or the backup\'s table, since there is none here yet)'}. <b>Replace</b> throws away what is here.</p>
+      <div class="rowbtns"><button class="go" id="bkMerge">Merge</button><button class="ghost" id="bkReplace">Replace what's here</button><button class="ghost" id="bkCancel">Cancel</button></div></div></div>`;
+    $('#bkCancel').onclick=()=>{ov.innerHTML='';};
+    $('#bkMerge').onclick=async()=>{ov.innerHTML='';clearTimer();const n0=HANDS.length,r=mergeBackup(d);await IDB.clear();HANDS.forEach(saveHand);save();dbWrite('state',{kind:'state',S});
+      G=null;hydrate();UI.mode='idle';UI.review=null;UI.drills=null;render();gradeTableSoon();toast(`Merged: ${HANDS.length-n0} new hands, ${r.reviews} new reviews${r.forked?'; hands played on both copies of the same table are kept as a separate table':''}.`);};
+    $('#bkReplace').onclick=()=>{ov.innerHTML='';confirmBox(`Replace the data here with this backup? The ${HANDS.length} hands and ${(S.journal||[]).length} reviews here will be lost.`,'Replace',async()=>{
       clearTimer();
       Object.assign(S,JSON.parse(JSON.stringify(d.S)));if(!Array.isArray(S.journal))S.journal=[];
-      HANDS=[];mergeHands(d.hands);await IDB.clear();HANDS.forEach(saveHand);save();G=null;hydrate();UI.mode='idle';UI.review=null;UI.drills=null;render();toast(`Restored ${HANDS.length} hands.`);});};
+      HANDS=[];mergeHands(d.hands);await IDB.clear();HANDS.forEach(saveHand);fillDefaults();RT.dirty=true;save();G=null;hydrate();UI.mode='idle';UI.review=null;UI.drills=null;render();toast(`Restored ${HANDS.length} hands.`);});};};
   fr.readAsText(file);
+}
+/* merge another copy's data into this one: histories are unioned by identity, counters keep the more advanced copy */
+function mergeBackup(d){
+  const I=JSON.parse(JSON.stringify(d.S)),imp=d.hands.filter(h=>h&&h.log),loc=HANDS.slice(),out={reviews:0,forked:false};
+  // a hand is identified by its number and the moment it ended, whatever table label each copy gives it
+  const idOf=h=>h.hand+'@'+h.at,locById=new Map(loc.map(h=>[idOf(h),h])),locByLabel=new Map(loc.map(h=>[h.tableId+':'+h.hand,h]));
+  const fork={};for(const h of imp){if(locById.has(idOf(h)))continue;const c=locByLabel.get(h.tableId+':'+h.hand);if(c)fork[h.tableId]=Math.min(fork[h.tableId]??Infinity,h.hand);}
+  const labels=new Set(loc.map(h=>h.tableId)),newLabel={};
+  for(const tid in fork){let n=2,l;do{l=tid.replace(/~\d+$/,'')+'~'+n++;}while(labels.has(l));labels.add(l);newLabel[tid]=l;}
+  const remap=new Map(); // imported "table:hand" -> label used here
+  for(const h of imp){const key=h.tableId+':'+h.hand,same=locById.get(idOf(h));
+    if(same){remap.set(key,same.tableId);h._dup=true;continue;}
+    if(fork[h.tableId]!=null&&h.hand>=fork[h.tableId]){remap.set(key,newLabel[h.tableId]);h.tableId=newLabel[h.tableId];out.forked=true;}}
+  const fix=x=>{if(x&&x.hand!=null){const t=remap.get(x.tableId+':'+x.hand);if(t)x.tableId=t;}};
+  (I.journal||[]).forEach(fix);(I.queue||[]).forEach(fix);
+  // hands, and lifetime chips counted once (hands older than the stored history are carried as an offset)
+  const sums=hs=>{let c=0,w=0,l=0;for(const h of hs){const x=h.result.net[h.heroSeat||0]||0;c+=x;if(x>0)w+=x;else l-=x;}return{c,w,l};};
+  const offOf=(L,hs)=>{if(!L)return{hands:0,chips:0,won:0,lost:0};const t=sums(hs);return{hands:Math.max(0,L.hands-hs.length),chips:L.chips-t.c,won:L.won-t.w,lost:L.lost-t.l};};
+  const oa=offOf(S.life,loc),ob=offOf(I.life,imp),o=oa.hands>=ob.hands?oa:ob;
+  const seen=new Set(loc.map(h=>h.tableId+':'+h.hand)),all=loc.slice();for(const h of imp){if(h._dup)continue;const k=h.tableId+':'+h.hand;if(!seen.has(k)){seen.add(k);all.push(h);}}
+  for(const h of imp)delete h._dup;
+  all.sort((a,b)=>(a.at||0)-(b.at||0));const t=sums(all),La=S.life||{},Lb=I.life||{};
+  S.life={chips:o.chips+t.c,hands:o.hands+all.length,won:o.won+t.w,lost:o.lost+t.l,best:Math.max(La.best||0,Lb.best||0,...all.map(h=>h.result.net[0]||0)),worst:Math.min(La.worst||0,Lb.worst||0,...all.map(h=>h.result.net[0]||0)),
+    since:Math.min(La.since||Infinity,Lb.since||Infinity,all.length?all[0].at:Infinity)};if(!isFinite(S.life.since))S.life.since=Date.now();
+  HANDS=all.slice(-1500);
+  // no table here yet: continue the backup's table
+  if(!loc.length&&I.tableId){for(const k of['tableId','players','button','handNo','blockStart'])if(I[k]!=null)S[k]=I[k];S.pending=null;}
+  // review journal (with any Claude replies), past sessions
+  const jk=j=>[j.hand,j.k,j.at].join('|'),byK=new Map(S.journal.map(j=>[jk(j),j]));
+  for(const j of I.journal||[]){const m=byK.get(jk(j));if(m){if(!m.claude&&j.claude)m.claude=j.claude;}else{S.journal.push(j);byK.set(jk(j),j);out.reviews++;}}
+  S.journal.sort((a,b)=>a.at-b.at);if(S.journal.length>250)S.journal=S.journal.slice(-250);
+  const sk=x=>x.hands+'|'+x.at,ss=new Set((S.sessions||[]).map(sk));S.sessions=(S.sessions||[]).concat((I.sessions||[]).filter(x=>!ss.has(sk(x)))).sort((a,b)=>a.at-b.at).slice(-100);
+  // skill counters and due reviews: the more advanced / more recent copy
+  for(const k in S.skills){const b=I.skills&&I.skills[k];if(b&&b.att>S.skills[k].att)S.skills[k]=b;}
+  const last=it=>Math.max(it.created||0,...(it.history||[]).map(h=>h.at||0));
+  for(const it of I.queue||[]){const i=S.queue.findIndex(x=>x.skill===it.skill);if(i<0)S.queue.push(it);else if(last(it)>last(S.queue[i]))S.queue[i]=it;}
+  S.reviews=Math.max(S.reviews||0,I.reviews||0);
+  for(const k in I.learn||{}){const a=S.learn[k],b=I.learn[k];if(!a||(b.tries||0)>(a.tries||0))S.learn[k]=b;}
+  if(I.pf){const P=S.pf;for(const id in I.pf.cards||{}){const a=P.cards[id],b=I.pf.cards[id];if(!a||(b.last||0)>(a.last||0))P.cards[id]=b;}
+    for(const id in I.pf.stats||{}){const a=P.stats[id],b=I.pf.stats[id];if(!a||(b.n||0)>(a.n||0))P.stats[id]=b;}
+    P.n=Math.max(P.n||0,I.pf.n||0);if(!P.custom&&I.pf.custom){P.custom=I.pf.custom;invalidateCustom();}}
+  mergeRating(I.rating);
+  return out;
 }
 function confirmBox(msg,label,onYes){
   const ov=$('#overlay');ov.innerHTML=`<div class="overlay"><div class="modal" role="dialog" aria-modal="true"><h2 style="font-size:24px">Are you sure?</h2><p></p><div class="rowbtns"><button class="go" id="cfYes"></button><button class="ghost" id="cfNo">Cancel</button></div></div></div>`;
@@ -2721,9 +2772,18 @@ function ratingNow(){if(RT.dirty||!RT.r)replayRating();return RT.r;}
 function rate(skill,x,d,src,at,quiet){
   const st=ratingState(),si=R_SK.indexOf(skill),ci=R_SRC.indexOf(src);if(si<0||ci<0)return;
   at=at||Date.now();if(st.base&&at<st.base.at)return;
+  if(src==='table'&&st.ev.some(e=>e[4]===3&&e[0]===at&&e[1]===si))return; // already graded (e.g. after a merge)
   st.ev.push([at,si,x,Math.round(d),ci]);RT.dirty=true;
   if(st.ev.length>5000){st.ev.sort((a,b)=>a[0]-b[0]);const all=st.ev;st.ev=all.slice(0,1000);replayRating();st.base={r:{...RT.r},n:{...RT.n},at:all[999][0]};st.ev=all.slice(1000);RT.dirty=true;}
   if(!quiet)save();
+}
+const normEv=ev=>(ev||[]).map(e=>Array.isArray(e)?e:[e.at,Math.max(0,R_SK.indexOf(e.s)),e.x,e.d,Math.max(0,R_SRC.indexOf(e.src))]);
+const evKey=e=>e[4]===3?e[0]+','+e[1]+',t':e.join(','); // a table decision is one event even if graded twice
+function mergeRating(B){
+  if(!B||!Array.isArray(B.ev))return;const A=ratingState(),seen=new Set(A.ev.map(evKey));
+  for(const e of normEv(B.ev)){const k=evKey(e);if(!seen.has(k)){seen.add(k);A.ev.push(e);}}
+  if(B.base&&(!A.base||B.base.at>A.base.at))A.base=B.base;if(A.base)A.ev=A.ev.filter(e=>e[0]>A.base.at);
+  A.seeded=A.seeded||!!B.seeded;A.gradedTo=Math.min(A.gradedTo||0,B.gradedTo||0);A.gradedSame=[];RT.dirty=true;
 }
 function seedRating(){
   const st=ratingState();if(st.seeded){RT.dirty=true;return;}
@@ -2868,7 +2928,7 @@ function autoplay(n){ // test helper: the hero is played by the solid-regular mo
     const rec=makeRecord(G,0);rec.tableId=S.tableId;for(let s=1;s<6;s++){const ll=handLL(rec,s);if(ll)rec.ll[rec.players[s].name]=ll;}HANDS.push(rec);lifeAdd(rec);saveHand(rec);}
   S.players.forEach((p,i)=>p.stack=G.players[i].stack);S.button=G.button;S.handNo=G.handNo;S.blockStart=G.handNo;save();render();gradeTableSoon();
 }
-window.__rewind={S,UI,autoplay,get G(){return G;},get HANDS(){return HANDS;},dealHand,heroAct,startReview,startDrills,render};
+window.__rewind={S,UI,autoplay,backupJSON,ratingNow,get G(){return G;},get HANDS(){return HANDS;},dealHand,heroAct,startReview,startDrills,render};
 boot();
 }
 
